@@ -40,14 +40,16 @@ class Downloader
     private function download( $lat, $lon, $alt )
     {
         $url = "{$this->config->url}?lat={$lat}&lon={$lon}&altitude={$alt}";
-        Logger::log( 'app', Logger::DEBUG ,  "  dwnl: stahuji $url" ); 
+        $ua = "YrNoProvider; {$_SERVER['SERVER_NAME']}; https://github.com/petrbrouzda/YrNoProvider";
+
+        Logger::log( 'app', Logger::DEBUG ,  "  dwnl: stahuji $url [$ua]" ); 
 
         $data = file_get_contents( $url, false, stream_context_create([
             'http' => [
                 'protocol_version' => 1.1,
                 'header'           => [
                     'Connection: close',
-                    'User-agent: YrNoProvider1 petr.brouzda@gmail.com'
+                    "User-agent: $ua"
                 ],
                 "timeout" => 30,
             ],

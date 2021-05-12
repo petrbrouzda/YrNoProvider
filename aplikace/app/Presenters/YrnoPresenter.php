@@ -58,7 +58,7 @@ final class YrnoPresenter extends Nette\Application\UI\Presenter
             $lat = number_format( floatval($lat), 4, '.', '' );
             $lon = number_format( floatval($lon), 4, '.', '' );
             $alt = intval( $alt );
-            Logger::log( 'app', Logger::INFO ,  "start {$lat} {$lon} {$alt} odhackuj={$odhackuj}" );
+            Logger::log( 'app', Logger::INFO ,  "start {$lat} {$lon} {$alt} odhackuj=" . ($odhackuj ? 'Y' : 'N') );
 
             // tohle zavolame vzdy; zajisti nacteni souboru, pokud je potreba
             $data = $this->downloader->getData( $lat, $lon, $alt );
@@ -79,14 +79,13 @@ final class YrnoPresenter extends Nette\Application\UI\Presenter
             } else {
                 Logger::log( 'app', Logger::DEBUG, 'cache hit' );    
             }
+            */
 
             $response = $this->getHttpResponse();
             $response->setHeader('Cache-Control', 'no-cache');
             $response->setExpiration('1 sec'); 
 
-
-            $this->sendJson($result);
-            */
+            $this->sendJson($rc);
 
         /*
         } catch (\Nette\Application\AbortException $e ) {
