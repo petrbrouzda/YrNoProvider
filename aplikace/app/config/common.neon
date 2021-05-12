@@ -1,0 +1,31 @@
+parameters:
+
+application:
+	errorPresenter: Error
+	mapping:
+		*: App\*Module\Presenters\*Presenter
+
+session:
+	expiration: 14 days
+	cookieSamesite: Strict
+	cacheLimiter: public
+
+services:
+	- App\Services\Downloader
+	- App\Services\Config
+	- App\Services\SmartCache	
+	- App\Services\YrnoParser
+	router: App\Router\RouterFactory::createRouter
+
+http:
+	# ovlivňuje hlavičku X-Frame-Options
+	frames: SAMEORIGIN
+	# na https budou cookie Secure
+	cookieSecure: auto
+	# hlavičky, které se s každým požadavkem odešlou
+	headers:
+		X-Content-Type-Options: nosniff
+		X-XSS-Protection: '1; mode=block'
+
+
+
