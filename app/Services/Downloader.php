@@ -40,7 +40,7 @@ class Downloader
     private function download( $lat, $lon, $alt )
     {
         $url = "{$this->config->url}?lat={$lat}&lon={$lon}&altitude={$alt}";
-        $ua = "YrNoProvider; {$_SERVER['SERVER_NAME']}; https://github.com/petrbrouzda/YrNoProvider";
+        $ua = "YrNoProvider; {$_SERVER['SERVER_NAME']}; github.com/petrbrouzda/YrNoProvider";
 
         Logger::log( 'app', Logger::DEBUG ,  "  dwnl: stahuji $url [$ua]" ); 
 
