@@ -2,6 +2,120 @@
 # YrNoProvider
 
 Zprostředkovatel dat z meteoserveru yr.no pro meteostanice se slabým procesorem.
+Načte z Yr.no velký JSON s předpovědí a ztransformuje ho na malý JSON s daty pro meteostanici:
+- hodinová předpověď pro aktuálních 12 hodin
+- předpověď po sekcích (dopoledne, odpoledne, večer, noc)
+
+Vyzkoušejte si zde: https://lovecka.info/YrNoProvider1/yrno/forecast?lat=50.7230&lon=15.1514&alt=500 a do lat, lon a alt zadejte své souřadnice a nadmořskou výšku.
+
+Aplikace řeší kešování dotazů na Yr.no i parsovaných odpovědí, aby zbytečně nezatěžovala lokální server, ani nenarazila na limity na straně yr.no. Aplikace vyplňuje User-agent dle požadavku Yr.no.
+
+Pro stahování dat z yr.no není potřebný žádný API klíč ani nic podobného. Informace:
+- omezení a terms: https://developer.yr.no/doc/TermsOfService/
+- getting started: https://developer.yr.no/doc/GettingStarted/
+- popis API: https://api.met.no/weatherapi/locationforecast/2.0/#!/data/get_compact
+- popis ikonek: https://api.met.no/weatherapi/weathericon/2.0/documentation
+- ikony ke stažení: https://github.com/nrkno/yr-weather-symbols
+
+Chování (množství vrácených dat) lze ovlivnit parametrem **mode**:
+- Při zavolání bez parametru **mode** nebo s **mode=0** aplikace vrátí jak předpověď pro sekce, tak pro jednotlivé hodiny.
+- Pro **mode=1** vrátí jen předpověď pro sekce.
+- Pro **mode=2** vrátí jen hodinovou předpověď.
+
+Ukázka odpovědi:
+
+```json
+{
+   "sections":[
+      {
+         "nazev":"dnes_dopoledne",
+         "temp_min":11,
+         "temp_max":11.3,
+         "rain_sum":0.9,
+         "rain_max":0.6,
+         "clouds_min":98.4,
+         "clouds_max":99.2,
+         "fog":"-",
+         "icon":"rain"
+      },
+      {
+         "nazev":"dnes_odpoledne",
+         "temp_min":10.6,
+         "temp_max":12,
+         "rain_sum":2.3,
+         "rain_max":0.8,
+         "clouds_min":96.1,
+         "clouds_max":100,
+         "fog":"-",
+         "icon":"rain"
+      },
+      .... zkráceno ...
+      {
+         "nazev":"zitra_den",
+         "temp_min":7.5,
+         "temp_max":10.9,
+         "rain_sum":2.5000000000000004,
+         "rain_max":0.4,
+         "clouds_min":99.2,
+         "clouds_max":100,
+         "fog":"-",
+         "icon":"rain"
+      }
+   ],
+   "hours":[
+      {
+         "hour":"10",
+         "temp":11,
+         "rain":0.2,
+         "clouds":99.2,
+         "fog":"-",
+         "icon":"lightrain"
+      },
+      {
+         "hour":"11",
+         "temp":11.3,
+         "rain":0.1,
+         "clouds":99.2,
+         "fog":"-",
+         "icon":"fog"
+      },
+      .... zkráceno ...
+      {
+         "hour":"20",
+         "temp":9,
+         "rain":0.1,
+         "clouds":100,
+         "fog":"-",
+         "icon":"lightrain"
+      },
+      {
+         "hour":"21",
+         "temp":8.8,
+         "rain":0.1,
+         "clouds":100,
+         "fog":"-",
+         "icon":"cloudy"
+      }
+   ]
+}
+```
+
+Hodinová předpověď začíná vždy aktuální hodinou.
+
+Sekce jsou:
+- dnes_noc (22:00-06:00)
+- dnes_dopoledne (06:00-12:00)
+- dnes_odpoledne (12:00-18:00)
+- dnes_vecer (18:00-22:00)
+- **zitra_noc** (22:00-06:00)
+- **zitra_den (06:00-21:00)**
+- *zitra_dopoledne (06:00-12:00)*
+- *zitra_odpoledne (12:00-18:00)*
+- *zitra_vecer (18:00-22:00)*
+
+Sekce se vrací podle denní doby. 
+- Sekce zapsané kurzívou se vrací pouze tehdy, pokud už je večer (později než 18:00); přes den se vrací zitra_den.
+- Sekce zitra_noc se vrací jen pokud probíhá "dnešní noc", tedy je mezi půlnocí a ránem.
 
 ---
 # Popis instalace
@@ -15,13 +129,13 @@ Instalační kroky:
 
 1) Stáhněte si celou serverovou aplikaci z githubu.
 
-2) V adresáři vašeho webového serveru (nejčastěji něco jako /var/www/) udělejte adresář pro aplikaci, třeba "ChmiWarnings". Bude tedy existovat adresář /var/www/ChmiWarnings přístupný zvenčí jako https://vas-server/ChmiWarnings/ .
+2) V adresáři vašeho webového serveru (nejčastěji něco jako /var/www/) udělejte adresář pro aplikaci, třeba "YrNoProvider". Bude tedy existovat adresář /var/www/YrNoProvider přístupný zvenčí jako https://vas-server/YrNoProvider/ .
 
 3) V konfiguraci webserveru (zde předpokládám Apache) povolte použití vlastních souborů .htaccess v adresářích aplikace – v nastavení /etc/apache2/sites-available/vaše-site.conf pro konkrétní adresář povolte AllowOverride
 
 Tj. pro konfiguraci ve stylu Apache 2.2:
 ```
-<Directory /var/www/ChmiWarnings/>
+<Directory /var/www/YrNoProvider/>
         AllowOverride all
         Order allow,deny
         allow from all
@@ -29,23 +143,22 @@ Tj. pro konfiguraci ve stylu Apache 2.2:
 ```
 a ekvivalentně pro Apache 2.4:
 ```
-<Directory /var/www/ChmiWarnings/>
+<Directory /var/www/YrNoProvider/>
         AllowOverride all
         Require all granted
 </Directory>
 ```
 
+4) Nakopírujte obsah aplikace do vytvořeného adresáře; vznikne tedy /var/www/YrNoProvider/app ; /var/www/YrNoProvider/data; ...
 
-4) Nakopírujte obsah podadresáře aplikace/ do vytvořeného adresáře; vznikne tedy /var/www/ChmiWarnings/app ; /var/www/ChmiWarnings/data; ...
-
-5) Přidělte webové aplikaci právo zapisovat do adresářů data, log a temp! Bez toho nebude nic fungovat. Nejčastěji by mělo stačit udělat v /var/www/ChmiWarnings/ něco jako:
+5) Přidělte webové aplikaci právo zapisovat do adresářů data, log a temp! Bez toho nebude nic fungovat. Nejčastěji by mělo stačit udělat v /var/www/YrNoProvider/ něco jako:
 
 ```
 sudo chown www-data:www-data data log temp
 sudo chmod u+rwx data log temp
 ```
 
-8) No a nyní zkuste v prohlížeči zadat https://vas-server/ChmiWarnings/chmi/vystrahy/5103 a měli byste dostat data.
+8) No a nyní zkuste v prohlížeči zadat https://vas-server/YrNoProvider/yrno/forecast?lat=50.7230&lon=15.1514&alt=500 a měli byste dostat data.
 
 
 ## Řešení problémů, ladění a úpravy

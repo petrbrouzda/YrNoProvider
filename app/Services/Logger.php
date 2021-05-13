@@ -116,6 +116,3 @@ class Logger
         self::log( $this->fileName, $level, $msg );
     }
 }
-
-
-
