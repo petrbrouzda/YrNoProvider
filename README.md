@@ -1,4 +1,8 @@
 
+# YrNoProvider
+
+Zprostředkovatel dat z meteoserveru yr.no pro meteostanice se slabým procesorem.
+
 ---
 # Popis instalace
 

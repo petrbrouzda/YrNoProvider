@@ -54,6 +54,7 @@ class YrnoParser
 
         // https://api.met.no/weatherapi/weathericon/2.0/documentation
         // https://hjelp.yr.no/hc/en-us/articles/203786121-Weather-symbols-on-Yr
+        // https://github.com/nrkno/yr-weather-symbols
         /*
 prioritizace:
 
@@ -175,7 +176,8 @@ heavysnowandthunder	34	Heavy snow and thunder
 
     private function najdiSerie( $odDnes, $odHod, $doDnes, $doHod, $nazev )
     {
-        Logger::log( 'app', Logger::DEBUG ,  '  hledam od ' . ($odDnes ? 'dnes' : 'zitra') . " $odHod do " . ($doDnes ? 'dnes' : 'zitra') . " $doHod" ); 
+        //D/ 
+        Logger::log( 'app', Logger::DEBUG ,  "  {$nazev}: hledam od " . ($odDnes ? 'dnes' : 'zitra') . " $odHod do " . ($doDnes ? 'dnes' : 'zitra') . " $doHod" ); 
 
         $fromLimit = new Nette\Utils\DateTime();
         if( !$odDnes ) {
@@ -234,6 +236,7 @@ heavysnowandthunder	34	Heavy snow and thunder
                     $f = '-';
                 }
                 
+                //D/ 
                 Logger::log( 'app', Logger::DEBUG , '    ' . $fromTime . " temp {$t}, rain {$r}, cloud {$c}, icon {$s}" );
             }
         }
@@ -267,6 +270,7 @@ heavysnowandthunder	34	Heavy snow and thunder
 
         $info['icon'] = $this->najdiNejdulezitejsiIkonu( $symbols ); 
 
+        //D/ 
         Logger::log( 'app', Logger::INFO , "  {$nazev}: {$info['icon']}; temp {$minTemp}..{$maxTemp}; rain {$sumRain} tot, {$maxHourRain}/hr; clouds {$minCloud}..{$maxCloud}; fog {$minFog}..{$maxFog}" );
 
         return $info;
@@ -337,9 +341,57 @@ heavysnowandthunder	34	Heavy snow and thunder
     }
 
 
-    public function parse( $data, $odhackuj )
+    private function vytvorHodiny()
     {
-        Debugger::enable();
+        $rc = array();
+
+        $pocetHodin = 12;
+
+        $now = (new DateTime())->modify('-1 hour')->getTimestamp();
+        foreach( $this->json->properties->timeseries as $ts ) {
+            $time = strtotime( $ts->time );
+            $fromTime = DateTime::from( $time );
+            $use = $time>$now;
+            // Logger::log( 'app', Logger::DEBUG ,  "serie pro {$ts->time} - " . $fromTime . ' ' . ($use ? 'YES' : '' ) ); 
+            if( $use ) {
+                $pocetHodin--;
+
+                $t = $ts->data->instant->details->air_temperature; 
+                $r = $ts->data->next_1_hours->details->precipitation_amount;
+                if( isset($ts->data->instant->details->cloud_area_fraction) ) {
+                    $c = $ts->data->instant->details->cloud_area_fraction;
+                } else {
+                    $c = '-';
+                }
+                $s = $ts->data->next_1_hours->summary->symbol_code;
+                if( isset($ts->data->instant->details->fog_area_fraction) ) {
+                    $f = $ts->data->instant->details->fog_area_fraction;
+                } else {
+                    $f = '-';
+                }
+                
+                //D/ 
+                Logger::log( 'app', Logger::DEBUG , '    ' . $fromTime . " temp {$t}, rain {$r}, cloud {$c}, icon {$s}" );
+
+                $info = array();
+                $info['hour'] = $fromTime->format('H');
+                $info['temp'] = $t;
+                $info['rain'] = $r;
+                $info['clouds'] = $c;
+                $info['fog'] = $f;
+                $info['icon'] = $s;
+                $rc[] = $info;
+            }
+            if( $pocetHodin==0 ) break;
+        }
+
+        return $rc;
+    }
+
+
+    public function parse( $data, $odhackuj, $mode )
+    {
+        // Debugger::enable();
 
         if( $odhackuj ) {
             $this->odhackuj = true; 
@@ -350,10 +402,14 @@ heavysnowandthunder	34	Heavy snow and thunder
         $this->json = Json::decode($data);
         
         $rc = array();
-        // sekce - dopoledne, odpoledne, vecer
-        $rc['sections'] = $this->vytvorSekce();
-        // hodinove predpovedi pro nejblizsich N hodin
-        //TODO
+        if( $mode==0 || $mode==1 ) {
+            // sekce - dopoledne, odpoledne, vecer
+            $rc['sections'] = $this->vytvorSekce();
+        }
+        if( $mode==0 || $mode==2 ) {
+            // hodinove predpovedi pro nejblizsich N hodin
+            $rc['hours'] = $this->vytvorHodiny();
+        }
         return $rc;
     }
 

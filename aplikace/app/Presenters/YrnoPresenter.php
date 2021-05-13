@@ -48,9 +48,10 @@ final class YrnoPresenter extends Nette\Application\UI\Presenter
     /**
      * odhackuj=1 -> odstrani diakritiku
      */
-    public function renderForecast( $lat, $lon, $alt, $odhackuj=false )
+    public function renderForecast( $lat, $lon, $alt, $odhackuj=false, $mode=0 )
     {
-        // try {
+        try {
+
             if( !is_numeric($lat) || !is_numeric($lon) || !is_numeric($alt) ) {
                 throw new \Exception( 'Vsechny parametry lat,lon,alt musi byt cislo' );
             }
@@ -63,23 +64,20 @@ final class YrnoPresenter extends Nette\Application\UI\Presenter
             // tohle zavolame vzdy; zajisti nacteni souboru, pokud je potreba
             $data = $this->downloader->getData( $lat, $lon, $alt );
 
-            $rc = $this->parser->parse( $data, $odhackuj );
-
-            Logger::log( 'app', Logger::INFO ,  "OK" );
-
-            /*
-            $result = $this->cache->get( $key );
-            if( $result==NULL ) {
-                $result = $this->parser->parse( $fileName, $id, $odhackuj, $kratke );
-
-                $this->cache->put($key, $result, [
-                    Cache::EXPIRE => '60 minutes',
-                    Cache::FILES => $this->downloader->getDataFileName(),
-                ]);
+            $key = "o_{$lat}_{$lon}_{$alt}_{$mode}_" . ($odhackuj ? 'Y' : 'N');
+            $rc = $this->cache->get( $key );
+            if( $rc==NULL ) {
+                Logger::log( 'app', Logger::INFO ,  "  parse: {$key}" );
+                $rc = $this->parser->parse( $data, $odhackuj, $mode );
+                $this->cache->put( $key, $rc,  [
+                        Cache::EXPIRE => '9 minutes'
+                    ]
+                );
             } else {
-                Logger::log( 'app', Logger::DEBUG, 'cache hit' );    
+                Logger::log( 'app', Logger::DEBUG ,  "  out cache hit" );
             }
-            */
+
+            Logger::log( 'app', Logger::INFO ,  "OK" );            
 
             $response = $this->getHttpResponse();
             $response->setHeader('Cache-Control', 'no-cache');
@@ -87,7 +85,6 @@ final class YrnoPresenter extends Nette\Application\UI\Presenter
 
             $this->sendJson($rc);
 
-        /*
         } catch (\Nette\Application\AbortException $e ) {
             // normalni scenar pro sendJson()
             throw $e;
@@ -102,7 +99,6 @@ final class YrnoPresenter extends Nette\Application\UI\Presenter
             $this->sendResponse($response);
             $this->terminate();
         }
-        */
     }
 
 }
