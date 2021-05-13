@@ -113,9 +113,7 @@ Sekce jsou:
 - *zitra_odpoledne (12:00-18:00)*
 - *zitra_vecer (18:00-22:00)*
 
-Sekce se vrací podle denní doby. 
-- Sekce zapsané kurzívou se vrací pouze tehdy, pokud už je večer (později než 18:00); přes den se vrací zitra_den.
-- Sekce zitra_noc se vrací jen pokud probíhá "dnešní noc", tedy je mezi půlnocí a ránem.
+Sekce se vrací podle denní doby. Sekce zapsané kurzívou se vrací pouze tehdy, pokud už je večer (později než 18:00); přes den se vrací sumární **zitra_den**. Sekce **zitra_noc** se vrací jen pokud probíhá "dnešní noc", tedy je mezi půlnocí a ránem.
 
 ---
 # Popis instalace
@@ -165,7 +163,7 @@ sudo chmod u+rwx data log temp
 
 Aplikace je napsaná v Nette frameworku. Pokud Nette neznáte, **důležitá informace**: Při úpravách aplikace či nasazování nové verze je třeba **smazat adresář temp/cache/** (tedy v návodu výše /var/www/ChmiWarnings/temp/cache). V tomto adresáři si Nette ukládá předkompilované šablony, mapování databázové struktury atd. Smazáním adresáře vynutíte novou kompilaci.
 
-Aplikace **loguje** do adresáře log/ do souboru app.YYYY-MM-DD.txt . Defaultně zapisuje jen chyby; úroveň logování je možné změnit v app/Services/Logger.php v položce LOG_LEVEL.
+Aplikace **loguje** do adresáře log/ do souboru app.YYYY-MM-DD.txt . Defaultně zapisuje chyby a základní informace o provozu; úroveň logování je možné změnit v app/Services/Logger.php v položce LOG_LEVEL.
 
 Konfigurace aplikace je v app/Services/Config.php
 
