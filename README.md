@@ -115,6 +115,12 @@ Sekce jsou:
 
 Sekce se vrací podle denní doby. Sekce zapsané kurzívou se vrací pouze tehdy, pokud už je večer (později než 18:00); přes den se vrací sumární **zitra_den**. Sekce **zitra_noc** se vrací jen pokud probíhá "dnešní noc", tedy je mezi půlnocí a ránem.
 
+Většina položek dat je zjevná. A ty co nejsou:
+- **fog** - Procentuální pokrytí mlhou, pokud se vyskytne. Nebo "-", pokud mlha nebude.
+- **clouds**, **clouds_min**, **clouds_max** - Procentuální pokrytí oblohy mraky, pokud budou. Nebo "-", pokud data nejsou.
+- **rain_sum** - Srážky (v mm) za celou dobu sekce, tj. např. za celé odpoledne.
+- **rain_max** - Maximální srážky za hodinu.
+
 ---
 # Popis instalace
 
