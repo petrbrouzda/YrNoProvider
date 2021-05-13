@@ -52,6 +52,123 @@ class YrnoParser
         return $this->dny[$date->format('N')] . ' ' . $date->format( 'j.n. H:i' );
     }
 
+        // https://api.met.no/weatherapi/weathericon/2.0/documentation
+        // https://hjelp.yr.no/hc/en-us/articles/203786121-Weather-symbols-on-Yr
+        /*
+prioritizace:
+
+clearsky	1	Clear sky	
+fair	2	Fair	            // polojasno
+partlycloudy	3	Partly cloudy	
+cloudy	4	Cloudy	
+
+fog	15	Fog	
+
+lightrainshowers	40	Light rain showers	
+lightrain	46	Light rain	
+lightrainshowersandthunder	24	Light rain showers and thunder	
+lightrainandthunder	30	Light rain and thunder	
+
+rainshowers	5	Rain showers	
+rain	9	Rain	
+rainshowersandthunder	6	Rain showers and thunder	
+rainandthunder	22	Rain and thunder	
+
+heavyrainshowers	41	Heavy rain showers	
+heavyrain	10	Heavy rain	
+heavyrainshowersandthunder	25	Heavy rain showers and thunder	
+heavyrainandthunder	11	Heavy rain and thunder	
+
+lightsleetshowers	42	Light sleet showers	
+lightsleet	47	Light sleet	
+lightssleetshowersandthunder	26	Light sleet showers and thunder	
+lightsleetandthunder	31	Light sleet and thunder	
+
+sleetshowers	7	Sleet showers	
+sleet	12	Sleet	                // dest se snehem
+sleetshowersandthunder	20	Sleet showers and thunder	
+sleetandthunder	23	Sleet and thunder	
+
+heavysleetshowers	43	Heavy sleet showers	
+heavysleet	48	Heavy sleet	
+heavysleetshowersandthunder	27	Heavy sleet showers and thunder	
+heavysleetandthunder	32	Heavy sleet and thunder	
+
+lightsnowshowers	44	Light snow showers	
+lightsnow	49	Light snow	
+lightssnowshowersandthunder	28	Light snow showers and thunder	
+lightsnowandthunder	33	Light snow and thunder	
+
+snowshowers	8	Snow showers	
+snow	13	Snow	
+snowshowersandthunder	21	Snow showers and thunder        
+snowandthunder	14	Snow and thunder	
+
+heavysnowshowers	45	Heavy snow showers	
+heavysnow	50	Heavy snow	
+heavysnowshowersandthunder	29	Heavy snow showers and thunder	
+heavysnowandthunder	34	Heavy snow and thunder	
+        */
+
+    private $icons = array( 
+        'clearsky',
+        'fair',
+        'partlycloudy',
+        'cloudy',
+        'fog',
+        'lightrainshowers',
+        'lightrain',
+        'lightrainshowersandthunder',
+        'lightrainandthunder',
+        'rainshowers',
+        'rain',
+        'rainshowersandthunder',
+        'rainandthunder',
+        'heavyrainshowers',
+        'heavyrain',
+        'heavyrainshowersandthunder',
+        'heavyrainandthunder',
+        'lightsleetshowers',
+        'lightsleet',
+        'lightssleetshowersandthunder',
+        'lightsleetandthunder',
+        'sleetshowers',
+        'sleet',
+        'sleetshowersandthunder',
+        'sleetandthunder',
+        'heavysleetshowers',
+        'heavysleet',
+        'heavysleetshowersandthunder',
+        'heavysleetandthunder',
+        'lightsnowshowers',
+        'lightsnow',
+        'lightssnowshowersandthunder',
+        'lightsnowandthunder',
+        'snowshowers',
+        'snow',
+        'snowshowersandthunder',
+        'snowandthunder',
+        'heavysnowshowers',
+        'heavysnow',
+        'heavysnowshowersandthunder',
+        'heavysnowandthunder' );
+
+    private function najdiNejdulezitejsiIkonu( $symbols )
+    {
+        $rc = 'clearsky';
+        $prevIndex = 0;
+
+        foreach( array_keys($symbols) as $icon ) {
+            $i = array_search ( $icon , $this->icons );
+            if( $i>$prevIndex ) {
+                $rc = $this->icons[$i];
+                $prevIndex = $i;
+            }
+        }
+
+        return $rc;
+    }        
+
 
     private $json;
     
@@ -78,8 +195,10 @@ class YrnoParser
         $maxTemp = -100;
         $sumRain = 0;
         $maxHourRain = 0;
-        $minCloud = 100;
-        $maxCloud = 0;
+        $minCloud = 101;
+        $maxCloud = -101;
+        $minFog = 101;
+        $maxFog = -101;
         $symbols = array();
 
         foreach( $this->json->properties->timeseries as $ts ) {
@@ -94,30 +213,42 @@ class YrnoParser
                 $r = $ts->data->next_1_hours->details->precipitation_amount;
                 if( $r > $maxHourRain ) { $maxHourRain = $r; }
                 $sumRain += $r;
-                $c = $ts->data->instant->details->cloud_area_fraction;
-                if( $c > $maxCloud ) { $maxCloud = $c; }
-                if( $c < $minCloud ) { $minCloud = $c; }
+                if( isset($ts->data->instant->details->cloud_area_fraction) ) {
+                    $c = $ts->data->instant->details->cloud_area_fraction;
+                    if( $c > $maxCloud ) { $maxCloud = $c; }
+                    if( $c < $minCloud ) { $minCloud = $c; }
+                } else {
+                    $c = '-';
+                }
                 $s = $ts->data->next_1_hours->summary->symbol_code;
                 if( isset($symbols[$s]) ) {
                     $symbols[$s]++;
                 } else {
                     $symbols[$s] = 1;
                 }
+                if( isset($ts->data->instant->details->fog_area_fraction) ) {
+                    $f = $ts->data->instant->details->fog_area_fraction;
+                    if( $f > $maxFog ) { $maxFog = $f; }
+                    if( $f < $minFog ) { $minFog = $f; }
+                } else {
+                    $f = '-';
+                }
+                
                 Logger::log( 'app', Logger::DEBUG , '    ' . $fromTime . " temp {$t}, rain {$r}, cloud {$c}, icon {$s}" );
             }
         }
-        Logger::log( 'app', Logger::DEBUG , "  {$nazev}: temp {$minTemp}..{$maxTemp}; rain {$sumRain} tot, {$maxHourRain}/hr; clouds {$minCloud}..{$maxCloud}" );
-
         $info = array();
         $info['nazev'] = $nazev;
         $info['temp_min'] = $minTemp;
         $info['temp_max'] = $maxTemp;
         $info['rain_sum'] = $sumRain;
         $info['rain_max'] = $maxHourRain;
-        $info['clouds_min'] = $minCloud;
-        $info['clouds_max'] = $maxCloud;
+        $info['clouds_min'] = ($minCloud != 101) ? $minCloud : '-';
+        $info['clouds_max'] = ($maxCloud != -101) ? $maxCloud : '-';
+        $info['fog'] = ($maxFog != -101) ? $maxFog : '-';
 
-        // vytvoreni ikony
+        // vytvoreni ikony - experimental, chybi snih a mlha
+        /*
         if( $maxHourRain > 3 ) {
             $icon = 'heavyrain';
         } else if( $maxHourRain > 1 ) {
@@ -132,41 +263,19 @@ class YrnoParser
             $icon = 'cloudy';
         }
         $info['icon-my'] = $icon;
-        arsort($symbols);
-        $info['icon-yr'] = array_keys($symbols)[0];
+        */
+
+        $info['icon'] = $this->najdiNejdulezitejsiIkonu( $symbols ); 
+
+        Logger::log( 'app', Logger::INFO , "  {$nazev}: {$info['icon']}; temp {$minTemp}..{$maxTemp}; rain {$sumRain} tot, {$maxHourRain}/hr; clouds {$minCloud}..{$maxCloud}; fog {$minFog}..{$maxFog}" );
 
         return $info;
     }
 
 
-    public function parse( $data, $odhackuj )
+    private function vytvorSekce()
     {
-        Debugger::enable();
-
-        if( $odhackuj ) {
-            $this->odhackuj = true; 
-            // aby fungoval iconv
-            setlocale(LC_ALL, 'czech'); // záleží na použitém systému
-        } 
-
-        $this->json = Json::decode($data);
-        // bdump( $this->json );
-
-        /*
-        $now = time();
-        foreach( $this->json->properties->timeseries as $ts ) {
-            // bdump( $ts );
-            $time = strtotime( $ts->time );
-            $fromTime = DateTime::from( $time );
-            $toTime = $fromTime->modifyClone('+1 hour');
-            $expired = $toTime->getTimestamp() < $now;
-            Logger::log( 'app', Logger::DEBUG ,  "serie pro {$ts->time} - " . $fromTime . ' ' . ($expired ? 'expired' : '' ) ); 
-        }
-        */
-
         $rc = array();
-
-        
 
         $curHour = intval( date( 'G' ) );
         if( $curHour <= 3 ) {
@@ -224,6 +333,27 @@ class YrnoParser
             $rc[] = $this->najdiSerie( false, 18, false, 21, 'zitra_vecer' );
         }
 
+        return $rc;
+    }
+
+
+    public function parse( $data, $odhackuj )
+    {
+        Debugger::enable();
+
+        if( $odhackuj ) {
+            $this->odhackuj = true; 
+            // aby fungoval iconv
+            setlocale(LC_ALL, 'czech'); // záleží na použitém systému
+        } 
+
+        $this->json = Json::decode($data);
+        
+        $rc = array();
+        // sekce - dopoledne, odpoledne, vecer
+        $rc['sections'] = $this->vytvorSekce();
+        // hodinove predpovedi pro nejblizsich N hodin
+        //TODO
         return $rc;
     }
 
