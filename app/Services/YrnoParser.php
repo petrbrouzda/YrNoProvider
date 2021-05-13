@@ -160,7 +160,9 @@ heavysnowandthunder	34	Heavy snow and thunder
         $prevIndex = 0;
 
         foreach( array_keys($symbols) as $icon ) {
-            $i = array_search ( $icon , $this->icons );
+            // partlycloudy_day - oddelime vse za podtrzitkem
+            $icon_split = explode ( '_' , $icon );
+            $i = array_search ( $icon_split[0] , $this->icons );
             if( $i>$prevIndex ) {
                 $rc = $this->icons[$i];
                 $prevIndex = $i;
@@ -371,7 +373,7 @@ heavysnowandthunder	34	Heavy snow and thunder
                 }
                 
                 //D/ 
-                Logger::log( 'app', Logger::DEBUG , '    ' . $fromTime . " temp {$t}, rain {$r}, cloud {$c}, icon {$s}" );
+                Logger::log( 'app', Logger::DEBUG , '  - ' . $fromTime . " temp {$t}, rain {$r}, cloud {$c}, icon {$s}" );
 
                 $info = array();
                 $info['hour'] = $fromTime->format('H');
