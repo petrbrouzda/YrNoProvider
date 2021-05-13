@@ -56,8 +56,9 @@ final class YrnoPresenter extends Nette\Application\UI\Presenter
                 throw new \Exception( 'Vsechny parametry lat,lon,alt musi byt cislo' );
             }
     
-            $lat = number_format( floatval($lat), 4, '.', '' );
-            $lon = number_format( floatval($lon), 4, '.', '' );
+            // nesmi se pouzit vice nez 4 desetinna mista; 3 mista = +-50 metru; 2 mista = +-500 metru
+            $lat = number_format( floatval($lat), 3, '.', '' );
+            $lon = number_format( floatval($lon), 3, '.', '' );
             $alt = intval( $alt );
             Logger::log( 'app', Logger::INFO ,  "start {$lat} {$lon} {$alt} odhackuj=" . ($odhackuj ? 'Y' : 'N') );
 
