@@ -63,8 +63,8 @@ class Downloader
                 $time = strtotime( Strings::substring( $hdr, 9 ) );
                 $expires = DateTime::from( $time );
                 $this->expiresSec = $time - time();
-                if( $this->expiresSec < 1800 ) {
-                    $this->expiresSec = 1800;
+                if( $this->expiresSec < $this->config->minInterval ) {
+                    $this->expiresSec = $this->config->minInterval;
                 }
                 Logger::log( 'app', Logger::DEBUG ,  "  expires in {$this->expiresSec} s, " . $expires ); 
             }

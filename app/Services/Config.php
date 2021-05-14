@@ -21,6 +21,11 @@ class Config
     public $url = 'https://api.met.no/weatherapi/locationforecast/2.0/compact';
 
     /**
+     * Minimalni interval pro dotazy na stejne misto, sec.
+     */
+    public $minInterval = 3600;
+
+    /**
      * Root adresar aplikace
      */
     public function getAppDir()
