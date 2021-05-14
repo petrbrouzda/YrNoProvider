@@ -366,6 +366,8 @@ heavysnowandthunder	34	Heavy snow and thunder
                     $c = '-';
                 }
                 $s = $ts->data->next_1_hours->summary->symbol_code;
+                $icon_split = explode ( '_' , $s );
+
                 if( isset($ts->data->instant->details->fog_area_fraction) ) {
                     $f = $ts->data->instant->details->fog_area_fraction;
                 } else {
@@ -381,7 +383,7 @@ heavysnowandthunder	34	Heavy snow and thunder
                 $info['rain'] = $r;
                 $info['clouds'] = $c;
                 $info['fog'] = $f;
-                $info['icon'] = $s;
+                $info['icon'] = $icon_split[0];
                 $rc[] = $info;
             }
             if( $pocetHodin==0 ) break;
