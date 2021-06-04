@@ -315,8 +315,10 @@ heavysnowandthunder	34	Heavy snow and thunder
             $rc[] = $this->najdiSerie( true, 18, true, 21, 'dnes_vecer' );
             // noc: 22-05
             $rc[] = $this->najdiSerie( true, 22, false, 5, 'dnes_noc' );
-            // zitra: +1d 6-20 min max dest
-            $rc[] = $this->najdiSerie( false, 6, false, 20, 'zitra_den' );
+            // zitra dopoledne: +1d 06-11
+            $rc[] = $this->najdiSerie( false, 6, false, 11, 'zitra_dopoledne' );
+            // zitra odpoledne: +1d 12-17
+            $rc[] = $this->najdiSerie( false, 12, false, 17, 'zitra_odpoledne' );
         } else if( $curHour <= 21 ) {
             // vecer: 18-21
             $rc[] = $this->najdiSerie( true, 18, true, 21, 'dnes_vecer' );
