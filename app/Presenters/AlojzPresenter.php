@@ -259,6 +259,7 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
    private $iconsMlha = array( 
       'fog');
 
+   private $obleceni;
 
    private function infoODni( $hodinovaTabulka, $hourOd, $hourDo, $dnes, $nazev )
    {
@@ -275,6 +276,8 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
       $hezky = false;
       $zamraceno = false;
       $mlha = false;
+
+      $this->obleceni = '';
 
       Logger::log( 'app', Logger::DEBUG ,  "  infoODni( $hourOd, $hourDo, $dnes )" );
       foreach( $hodinovaTabulka as $hodina ) {
@@ -361,6 +364,51 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
       Logger::log( 'app', Logger::DEBUG ,  "  bourky:$bourky, snih:$snih, dest:$dest, prehanky:$prehanky, hezky:$hezky, zamraceno:$zamraceno, mlha:$mlha " );
       Logger::log( 'app', Logger::DEBUG ,  "  > $text" );
 
+      if( $minTemp<-10 ) {
+         $this->obleceni = "arktickou bundu, kulicha a tlusté rukavice";
+      } else if( $minTemp<-2 ) {
+         $this->obleceni = "zimní bundu a rukavice";
+      } else if( $minTemp<10  ) {
+         $this->obleceni = "tlustou bundu";
+         if( $dest || $bourky ) {
+            $this->obleceni .= " a deštník";
+         }
+      } else if( $minTemp<15  ) {
+         $this->obleceni = "mikinu";
+         if( $dest || $bourky ) {
+            $this->obleceni .= " a deštník";
+         }
+      } else if( $minTemp<20  ) {
+         if( $prehanky ) {
+            $this->obleceni = "mikinu";
+         } else if( $dest || $bourky ) {
+            $this->obleceni .= "mikinu a deštník";
+         } else {
+            $this->obleceni = "triko";
+         } 
+      } else {
+         if( $prehanky ) {
+            $this->obleceni = "triko";
+         } else if( $dest || $bourky ) {
+            $this->obleceni .= "triko a deštník";
+         } else {
+            $this->obleceni = "triko a kraťasy";
+         } 
+      }
+
+      switch( rand(1, 3) ) {
+         case 1:
+            $this->obleceni = 'Vezmi si ' . $this->obleceni . '.';
+            break;
+         case 2:
+            $this->obleceni = 'Je to na ' . $this->obleceni . '.';
+            break;
+         case 3:
+            $this->obleceni = 'Na sebe ' . $this->obleceni . '.';
+            break;
+         }
+         Logger::log( 'app', Logger::DEBUG ,  "  > {$this->obleceni}" );
+
       return $text;
     }
 
@@ -384,11 +432,15 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          $text1 = $this->infoODni( $hodinovaTabulka, 8, 11, true, 'Dopoledne' );
          $text1 .= ' ';
          $text1 .= $this->infoODni( $hodinovaTabulka, 12, 20, true, 'Odpoledne' );
+         $this->infoODni( $hodinovaTabulka, 8, 19, true, '-' );
+         $text1 = $this->obleceni . ' ' . $text1;
          $prefer = 'day1';
       } else if( $curHour<15 ) {
          // dnesek od ted do 20
          $text1 = $this->infoODni( $hodinovaTabulka, $curHour, 20, true, 'Odpoledne' );
          $prefer = 'day1';
+         $this->infoODni( $hodinovaTabulka, $curHour, 19, true, '-' );
+         $text1 = $this->obleceni . ' ' . $text1;
       } else if( $curHour<20 ) {
          // obdobi od ted do 21
          $text1 = $this->infoODni( $hodinovaTabulka, $curHour, 21, true, 'Večer' );
@@ -396,12 +448,16 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          $text2 = $this->infoODni( $hodinovaTabulka, 8, 11, false, 'Dopoledne' );
          $text2 .= ' ';
          $text2 .= $this->infoODni( $hodinovaTabulka, 12, 20, false, 'Odpoledne' );
+         $this->infoODni( $hodinovaTabulka, 8, 19, false, '-' );
+         $text2 = $this->obleceni . ' ' . $text2;
          $prefer = 'day2';
       } else  {
          // zitrek 08-20
          $text2 = $this->infoODni( $hodinovaTabulka, 8, 11, false, 'Dopoledne' );
          $text2 .= ' ';
          $text2 .= $this->infoODni( $hodinovaTabulka, 12, 20, false, 'Odpoledne' );
+         $this->infoODni( $hodinovaTabulka, 8, 19, false, '-' );
+         $text2 = $this->obleceni . ' ' . $text2;
          $prefer = 'day2';
       }
 
