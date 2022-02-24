@@ -12,6 +12,7 @@ session:
 
 services:
 	- App\Services\Downloader
+	- App\Services\DownloaderAlojz
 	- App\Services\Config
 	- App\Services\SmartCache	
 	- App\Services\YrnoParser

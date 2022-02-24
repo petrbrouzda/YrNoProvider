@@ -16,9 +16,14 @@ class Config
     public $expectedFileSize = 5000;
 
     /**
-     * URL sluzby
+     * URL sluzby yr.no
      */
     public $url = 'https://api.met.no/weatherapi/locationforecast/2.0/compact';
+
+    /**
+     * URL sluzby alojz.cz
+     */
+    public $alojzUrl = 'https://alojz.cz/api/v1/solution?url_id=';
 
     /**
      * Minimalni interval pro dotazy na stejne misto, sec.

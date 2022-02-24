@@ -1,5 +1,12 @@
 
-# YrNoProvider
+# YrNoProvider (v2) - proxy pro yr.no a alojz.cz
+
+Aplikace zajišťuje dvě nezávislé funkce:
+* Zprostředkovatel dat z meteoserveru yr.no pro meteostanice se slabým procesorem.
+* Proxy pro zajištění spolehlivých dat ze služby alojz.cz
+
+-----
+## Zprostředkovatel dat z yr.no
 
 Zprostředkovatel dat z meteoserveru yr.no pro meteostanice se slabým procesorem.
 Načte z Yr.no velký JSON s předpovědí a ztransformuje ho na malý JSON s daty pro meteostanici:
@@ -120,6 +127,25 @@ Většina položek dat je zjevná. A ty co nejsou:
 - **clouds**, **clouds_min**, **clouds_max** - Procentuální pokrytí oblohy mraky, pokud budou. Nebo "-", pokud data nejsou.
 - **rain_sum** - Srážky (v mm) za celou dobu sekce, tj. např. za celé odpoledne.
 - **rain_max** - Maximální srážky za hodinu.
+
+---
+## Proxy pro Alojz.cz
+
+Alojz.cz je skvělá služba pro "lidsky přepsanou" předpověď počasí.
+Webový interface najdete zde: https://alojz.cz a webové API vypadá takto: https://alojz.cz/api/v1/solution?url_id=/jablonec-nad-nisou
+
+Jenže poslední dobou se alojz.cz čas od času zasekne a dává "prázdná" data. Což je škoda, meteostanice pak nemá co ukázat na displeji.
+
+Takže jsem napsal proxy, která udělá dotaz na alojz.cz a pokud dostane validní data, vrátí je tazateli.
+Pokud ovšem alojz.cz nefunguje, pak si stáhne předpověď z yr.no a postaví z ní alespoň základní textovou předpověď. Není tak dobrá jako alojz.cz, ale je to lepší než prázdná displej.
+
+**Nemusíte měnit kód** v meteostanici (v mikrokontroléru). Vrácená data **mají stejnou strukturu**, ať se vrátí z alojz.cz nebo z náhradního zdroje.
+
+Vyzkoušejte si zde: https://lovecka.info/YrNoProvider1/alojz/alojz?alojzId=jablonec-nad-nisou&lat=50.7230&lon=15.1514&alt=500
+
+* alojzId je ID místa používaný v alojz.cz
+* lat, lon, alt jsou zeměpisné souřadnice a nadmořská výška místa pro stahování z yr.no
+
 
 ---
 # Popis instalace

@@ -41,4 +41,9 @@ class SmartCache
         $object['value'] = $value;
         $this->cache->save( $key, $object, $params );
     }
+
+    public function remove( $key ) 
+    {
+        $this->cache->remove( $key );
+    }
 }
