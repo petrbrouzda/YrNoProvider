@@ -137,7 +137,7 @@ Webový interface najdete zde: https://alojz.cz a webové API vypadá takto: htt
 Jenže poslední dobou se alojz.cz čas od času zasekne a dává "prázdná" data. Což je škoda, meteostanice pak nemá co ukázat na displeji.
 
 Takže jsem napsal proxy, která udělá dotaz na alojz.cz a pokud dostane validní data, vrátí je tazateli.
-Pokud ovšem alojz.cz nefunguje, pak si stáhne předpověď z yr.no a postaví z ní alespoň základní textovou předpověď. Není tak dobrá jako alojz.cz, ale je to lepší než prázdná displej.
+Pokud ovšem alojz.cz nefunguje, pak si stáhne předpověď z yr.no a postaví z ní alespoň základní textovou předpověď. Není tak dobrá jako alojz.cz, ale je to lepší než prázdný displej.
 
 **Nemusíte měnit kód** v meteostanici (v mikrokontroléru). Vrácená data **mají stejnou strukturu**, ať se vrátí z alojz.cz nebo z náhradního zdroje.
 
