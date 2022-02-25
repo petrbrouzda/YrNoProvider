@@ -435,6 +435,13 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          $this->infoODni( $hodinovaTabulka, 8, 19, true, '-' );
          $text1 = $this->obleceni . ' ' . $text1;
          $prefer = 'day1';
+      } else if( $curHour<12 ) {
+         $text1 = $this->infoODni( $hodinovaTabulka, $curHour, 12, true, 'Dopoledne' );
+         $text1 .= ' ';
+         $text1 .= $this->infoODni( $hodinovaTabulka, 12, 20, true, 'Odpoledne' );
+         $this->infoODni( $hodinovaTabulka, $curHour, 19, true, '-' );
+         $text1 = $this->obleceni . ' ' . $text1;
+         $prefer = 'day1';
       } else if( $curHour<15 ) {
          // dnesek od ted do 20
          $text1 = $this->infoODni( $hodinovaTabulka, $curHour, 20, true, 'Odpoledne' );
@@ -448,7 +455,7 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          $text2 = $this->infoODni( $hodinovaTabulka, 8, 11, false, 'Dopoledne' );
          $text2 .= ' ';
          $text2 .= $this->infoODni( $hodinovaTabulka, 12, 20, false, 'Odpoledne' );
-         $this->infoODni( $hodinovaTabulka, 8, 19, false, '-' );
+         $this->infoODni( $hodinovaTabulka, $curHour, 20, false, '-' );
          $text2 = $this->obleceni . ' ' . $text2;
          $prefer = 'day2';
       } else  {
