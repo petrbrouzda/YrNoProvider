@@ -109,7 +109,9 @@ class Template
 	 */
 	public function getParameters(): array
 	{
-		return $this->params;
+		$params = $this->params;
+		unset($params['_l'], $params['_g']);
+		return $params;
 	}
 
 
@@ -164,7 +166,7 @@ class Template
 	 * Renders template.
 	 * @internal
 	 */
-	public function render(string $block = null): void
+	public function render(?string $block = null): void
 	{
 		$level = ob_get_level();
 		try {
@@ -177,12 +179,13 @@ class Template
 			while (ob_get_level() > $level) {
 				ob_end_clean();
 			}
+
 			throw $e;
 		}
 	}
 
 
-	private function doRender(string $block = null): bool
+	private function doRender(?string $block = null): bool
 	{
 		if ($this->parentName === null && isset($this->global->coreParentFinder)) {
 			$this->parentName = ($this->global->coreParentFinder)($this);
@@ -191,8 +194,6 @@ class Template
 			$this->global->snippetDriver = new SnippetDriver($this->global->snippetBridge);
 		}
 		Filters::$xhtml = (bool) preg_match('#xml|xhtml#', static::CONTENT_TYPE);
-		$this->params['_l'] = new \stdClass; // old accumulators for back compatibility
-		$this->params['_g'] = $this->global;
 
 		if ($this->referenceType === 'import') {
 			if ($this->parentName) {
@@ -241,6 +242,7 @@ class Template
 			foreach ($referred->blocks[self::LAYER_TOP] as $nm => $block) {
 				$this->addBlock($nm, $block->contentType, $block->functions);
 			}
+
 			$referred->blocks[self::LAYER_TOP] = &$this->blocks[self::LAYER_TOP];
 
 			$this->blocks[self::LAYER_SNIPPET] += $referred->blocks[self::LAYER_SNIPPET];
@@ -256,7 +258,7 @@ class Template
 	 * @param  string|\Closure|null  $mod  content-type name or modifier closure
 	 * @internal
 	 */
-	public function renderToContentType($mod, string $block = null): void
+	public function renderToContentType($mod, ?string $block = null): void
 	{
 		$this->filter(
 			function () use ($block) { $this->render($block); },
@@ -401,7 +403,7 @@ class Template
 	/**
 	 * @param  int|string  $staticId
 	 */
-	private function initBlockLayer($staticId, int $destId = null): void
+	private function initBlockLayer($staticId, ?int $destId = null): void
 	{
 		$destId = $destId ?? $staticId;
 		$this->blocks[$destId] = [];

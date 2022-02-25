@@ -37,7 +37,7 @@ class SessionExtension extends Nette\DI\CompilerExtension
 	{
 		return Expect::structure([
 			'debugger' => Expect::bool(false),
-			'autoStart' => Expect::anyOf('smart', true, false)->firstIsDefault(),
+			'autoStart' => Expect::anyOf('smart', 'always', 'never', true, false)->firstIsDefault(),
 			'expiration' => Expect::string()->dynamic(),
 			'handler' => Expect::string()->dynamic(),
 			'readAndClose' => Expect::bool(),
@@ -82,8 +82,8 @@ class SessionExtension extends Nette\DI\CompilerExtension
 
 		$options = (array) $config;
 		unset($options['expiration'], $options['handler'], $options['autoStart'], $options['debugger']);
-		if ($options['readAndClose'] === null) {
-			unset($options['readAndClose']);
+		if ($config->autoStart === 'never') {
+			$options['autoStart'] = false;
 		}
 		if (!empty($options)) {
 			$session->addSetup('setOptions', [$options]);
@@ -97,9 +97,9 @@ class SessionExtension extends Nette\DI\CompilerExtension
 			$name = $this->prefix('session');
 
 			if ($config->autoStart === 'smart') {
-				$this->initialization->addBody('$this->getService(?)->exists() && $this->getService(?)->start();', [$name, $name]);
+				$this->initialization->addBody('$this->getService(?)->autoStart(false);', [$name]);
 
-			} elseif ($config->autoStart) {
+			} elseif ($config->autoStart === 'always' || $config->autoStart === true) {
 				$this->initialization->addBody('$this->getService(?)->start();', [$name]);
 			}
 		}

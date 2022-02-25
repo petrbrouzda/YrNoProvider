@@ -25,6 +25,7 @@ class Type
 		CALLABLE = 'callable',
 		ITERABLE = 'iterable',
 		VOID = 'void',
+		NEVER = 'never',
 		MIXED = 'mixed',
 		FALSE = 'false',
 		NULL = 'null',
@@ -42,6 +43,12 @@ class Type
 	public static function union(string ...$types): string
 	{
 		return implode('|', $types);
+	}
+
+
+	public static function intersection(string ...$types): string
+	{
+		return implode('&', $types);
 	}
 
 

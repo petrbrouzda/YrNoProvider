@@ -11,6 +11,7 @@ namespace Nette\DI;
 
 use Nette;
 use Nette\Utils\Reflection;
+use Nette\Utils\Type;
 use ReflectionClass;
 use ReflectionMethod;
 
@@ -58,13 +59,12 @@ class DependencyChecker
 						$classes[$item] = true;
 					}
 				}
-
 			} elseif ($dep instanceof \ReflectionFunctionAbstract) {
 				$phpFiles[] = $dep->getFileName();
 				$functions[] = rtrim(Reflection::toString($dep), '()');
 
 			} else {
-				throw new Nette\InvalidStateException('Unexpected dependency ' . gettype($dep));
+				throw new Nette\InvalidStateException(sprintf('Unexpected dependency %s', gettype($dep)));
 			}
 		}
 
@@ -121,11 +121,12 @@ class DependencyChecker
 						$name,
 						$prop->name,
 						$prop->getDocComment(),
-						Reflection::getPropertyTypes($prop),
+						(string) Type::fromReflection($prop),
 						PHP_VERSION_ID >= 80000 ? count($prop->getAttributes(Attributes\Inject::class)) : null,
 					];
 				}
 			}
+
 			foreach ($class->getMethods(ReflectionMethod::IS_PUBLIC) as $method) {
 				if ($method->getDeclaringClass() == $class) { // intentionally ==
 					$hash[] = [
@@ -133,7 +134,7 @@ class DependencyChecker
 						$method->name,
 						$method->getDocComment(),
 						self::hashParameters($method),
-						Reflection::getReturnTypes($method),
+						(string) Type::fromReflection($method),
 					];
 				}
 			}
@@ -147,17 +148,19 @@ class DependencyChecker
 				if (isset($flip[$class->name])) {
 					continue;
 				}
+
 				$uses = Reflection::getUseStatements($class);
 			} else {
 				$method = new \ReflectionFunction($name);
 				$uses = null;
 			}
+
 			$hash[] = [
 				$name,
 				$uses,
 				$method->getDocComment(),
 				self::hashParameters($method),
-				Reflection::getReturnTypes($method),
+				(string) Type::fromReflection($method),
 			];
 		}
 
@@ -171,13 +174,14 @@ class DependencyChecker
 		foreach ($method->getParameters() as $param) {
 			$res[] = [
 				$param->name,
-				Reflection::getParameterTypes($param),
+				(string) Type::fromReflection($param),
 				$param->isVariadic(),
 				$param->isDefaultValueAvailable()
-					? [Reflection::getParameterDefaultValue($param)]
+					? is_object($tmp = Reflection::getParameterDefaultValue($param)) ? ['object' => get_class($tmp)] : ['value' => $tmp]
 					: null,
 			];
 		}
+
 		return $res;
 	}
 }

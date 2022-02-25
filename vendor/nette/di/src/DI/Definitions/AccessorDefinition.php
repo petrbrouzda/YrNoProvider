@@ -10,8 +10,8 @@ declare(strict_types=1);
 namespace Nette\DI\Definitions;
 
 use Nette;
-use Nette\DI\ServiceCreationException;
-use Nette\Utils\Reflection;
+use Nette\DI\Helpers;
+use Nette\Utils\Type;
 
 
 /**
@@ -26,12 +26,17 @@ final class AccessorDefinition extends Definition
 
 
 	/** @return static */
-	public function setImplement(string $type)
+	public function setImplement(string $interface)
 	{
-		if (!interface_exists($type)) {
-			throw new Nette\InvalidArgumentException("Service '{$this->getName()}': Interface '$type' not found.");
+		if (!interface_exists($interface)) {
+			throw new Nette\InvalidArgumentException(sprintf(
+				"Service '%s': Interface '%s' not found.",
+				$this->getName(),
+				$interface
+			));
 		}
-		$rc = new \ReflectionClass($type);
+
+		$rc = new \ReflectionClass($interface);
 
 		$method = $rc->getMethods()[0] ?? null;
 		if (
@@ -40,11 +45,20 @@ final class AccessorDefinition extends Definition
 			|| $method->getName() !== self::METHOD_GET
 			|| count($rc->getMethods()) > 1
 		) {
-			throw new Nette\InvalidArgumentException("Service '{$this->getName()}': Interface $type must have just one non-static method get().");
+			throw new Nette\InvalidArgumentException(sprintf(
+				"Service '%s': Interface %s must have just one non-static method get().",
+				$this->getName(),
+				$interface
+			));
 		} elseif ($method->getNumberOfParameters()) {
-			throw new Nette\InvalidArgumentException("Service '{$this->getName()}': Method $type::get() must have no parameters.");
+			throw new Nette\InvalidArgumentException(sprintf(
+				"Service '%s': Method %s::get() must have no parameters.",
+				$this->getName(),
+				$interface
+			));
 		}
-		return parent::setType($type);
+
+		return parent::setType($interface);
 	}
 
 
@@ -67,6 +81,7 @@ final class AccessorDefinition extends Definition
 				? new Reference(substr($reference, 1))
 				: Reference::fromType($reference);
 		}
+
 		return $this;
 	}
 
@@ -87,14 +102,8 @@ final class AccessorDefinition extends Definition
 		if (!$this->reference) {
 			$interface = $this->getType();
 			$method = new \ReflectionMethod($interface, self::METHOD_GET);
-			$returnType = Nette\DI\Helpers::getReturnType($method);
-
-			if (!$returnType) {
-				throw new ServiceCreationException("Method $interface::get() has not return type hint or annotation @return.");
-			} elseif (!class_exists($returnType) && !interface_exists($returnType)) {
-				throw new ServiceCreationException("Check a type hint or annotation @return of the $interface::get() method, class '$returnType' cannot be found.");
-			}
-			$this->setReference($returnType);
+			$type = Type::fromReflection($method) ?? Helpers::getReturnTypeAnnotation($method);
+			$this->setReference(Helpers::ensureClassType($type, "return type of $interface::get()"));
 		}
 
 		$this->reference = $resolver->normalizeReference($this->reference);
@@ -118,7 +127,7 @@ final class AccessorDefinition extends Definition
 
 		$class->addMethod(self::METHOD_GET)
 			->setBody('return $this->container->getService(?);', [$this->reference->getValue()])
-			->setReturnType(Reflection::getReturnType($rm));
+			->setReturnType((string) Type::fromReflection($rm));
 
 		$method->setBody('return new class ($this) ' . $class . ';');
 	}

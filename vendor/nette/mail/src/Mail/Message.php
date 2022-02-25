@@ -189,7 +189,8 @@ class Message extends MimePart
 	 */
 	public function getPriority(): ?int
 	{
-		return $this->getHeader('X-Priority');
+		$priority = $this->getHeader('X-Priority');
+		return is_numeric($priority) ? (int) $priority : null;
 	}
 
 
@@ -397,6 +398,7 @@ class Message extends MimePart
 		]);
 		$text = Nette\Utils\Html::htmlToText($html);
 		$text = Strings::replace($text, '#[ \t]+#', ' ');
+		$text = implode("\n", array_map('trim', explode("\n", $text)));
 		return trim($text);
 	}
 

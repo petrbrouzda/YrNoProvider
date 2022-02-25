@@ -13,7 +13,7 @@ use Nette;
 
 
 /**
- * Basic manipulation with images. Supported types are JPEG, PNG, GIF, WEBP and BMP.
+ * Basic manipulation with images. Supported types are JPEG, PNG, GIF, WEBP, AVIF and BMP.
  *
  * <code>
  * $image = Image::fromFile('nette.jpg');
@@ -119,11 +119,12 @@ class Image
 		PNG = IMAGETYPE_PNG,
 		GIF = IMAGETYPE_GIF,
 		WEBP = IMAGETYPE_WEBP,
+		AVIF = 19, // IMAGETYPE_AVIF,
 		BMP = IMAGETYPE_BMP;
 
 	public const EMPTY_GIF = "GIF89a\x01\x00\x01\x00\x80\x00\x00\x00\x00\x00\x00\x00\x00!\xf9\x04\x01\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;";
 
-	private const FORMATS = [self::JPEG => 'jpeg', self::PNG => 'png', self::GIF => 'gif', self::WEBP => 'webp', self::BMP => 'bmp'];
+	private const FORMATS = [self::JPEG => 'jpeg', self::PNG => 'png', self::GIF => 'gif', self::WEBP => 'webp', self::AVIF => 'avif', self::BMP => 'bmp'];
 
 	/** @var resource|\GdImage */
 	private $image;
@@ -149,7 +150,7 @@ class Image
 	 * @throws UnknownImageFileException if file not found or file type is not known
 	 * @return static
 	 */
-	public static function fromFile(string $file, int &$type = null)
+	public static function fromFile(string $file, ?int &$type = null)
 	{
 		if (!extension_loaded('gd')) {
 			throw new Nette\NotSupportedException('PHP extension GD is not loaded.');
@@ -160,10 +161,7 @@ class Image
 			throw new UnknownImageFileException(is_file($file) ? "Unknown type of file '$file'." : "File '$file' not found.");
 		}
 
-		$method = 'imagecreatefrom' . self::FORMATS[$type];
-		return new static(Callback::invokeSafe($method, [$file], function (string $message): void {
-			throw new ImageException($message);
-		}));
+		return self::invokeSafe('imagecreatefrom' . self::FORMATS[$type], $file, "Unable to open file '$file'.", __METHOD__);
 	}
 
 
@@ -173,7 +171,7 @@ class Image
 	 * @throws Nette\NotSupportedException if gd extension is not loaded
 	 * @throws ImageException
 	 */
-	public static function fromString(string $s, int &$type = null)
+	public static function fromString(string $s, ?int &$type = null)
 	{
 		if (!extension_loaded('gd')) {
 			throw new Nette\NotSupportedException('PHP extension GD is not loaded.');
@@ -184,9 +182,24 @@ class Image
 			throw new UnknownImageFileException('Unknown type of image.');
 		}
 
-		return new static(Callback::invokeSafe('imagecreatefromstring', [$s], function (string $message): void {
-			throw new ImageException($message);
-		}));
+		return self::invokeSafe('imagecreatefromstring', $s, 'Unable to open image from string.', __METHOD__);
+	}
+
+
+	private static function invokeSafe(string $func, string $arg, string $message, string $callee): self
+	{
+		$errors = [];
+		$res = Callback::invokeSafe($func, [$arg], function (string $message) use (&$errors): void {
+			$errors[] = $message;
+		});
+
+		if (!$res) {
+			throw new ImageException($message . ' Errors: ' . implode(', ', $errors));
+		} elseif ($errors) {
+			trigger_error($callee . '(): ' . implode(', ', $errors), E_USER_WARNING);
+		}
+
+		return new static($res);
 	}
 
 
@@ -195,7 +208,7 @@ class Image
 	 * @return static
 	 * @throws Nette\NotSupportedException if gd extension is not loaded
 	 */
-	public static function fromBlank(int $width, int $height, array $color = null)
+	public static function fromBlank(int $width, int $height, ?array $color = null)
 	{
 		if (!extension_loaded('gd')) {
 			throw new Nette\NotSupportedException('PHP extension GD is not loaded.');
@@ -213,6 +226,7 @@ class Image
 			imagefilledrectangle($image, 0, 0, $width - 1, $height - 1, $color);
 			imagealphablending($image, true);
 		}
+
 		return new static($image);
 	}
 
@@ -245,6 +259,7 @@ class Image
 		if (!isset(self::FORMATS[$type])) {
 			throw new Nette\InvalidArgumentException("Unsupported image type '$type'.");
 		}
+
 		return self::FORMATS[$type];
 	}
 
@@ -297,6 +312,7 @@ class Image
 		if (!$image instanceof \GdImage && !(is_resource($image) && get_resource_type($image) === 'gd')) {
 			throw new Nette\InvalidArgumentException('Image is not valid.');
 		}
+
 		$this->image = $image;
 		return $this;
 	}
@@ -346,6 +362,7 @@ class Image
 		if ($width < 0 || $height < 0) {
 			imageflip($this->image, $width < 0 ? ($height < 0 ? IMG_FLIP_BOTH : IMG_FLIP_HORIZONTAL) : IMG_FLIP_VERTICAL);
 		}
+
 		return $this;
 	}
 
@@ -387,7 +404,6 @@ class Image
 				$newWidth = (int) round($srcWidth * min(1, $newWidth / $srcWidth));
 				$newHeight = (int) round($srcHeight * min(1, $newHeight / $srcHeight));
 			}
-
 		} else {  // proportional
 			if (!$newWidth && !$newHeight) {
 				throw new Nette\InvalidArgumentException('At least width or height must be specified.');
@@ -439,6 +455,7 @@ class Image
 			imagecopy($newImage, $this->image, 0, 0, $r['x'], $r['y'], $r['width'], $r['height']);
 			$this->image = $newImage;
 		}
+
 		return $this;
 	}
 
@@ -455,23 +472,29 @@ class Image
 		if (self::isPercent($newWidth)) {
 			$newWidth = (int) round($srcWidth / 100 * $newWidth);
 		}
+
 		if (self::isPercent($newHeight)) {
 			$newHeight = (int) round($srcHeight / 100 * $newHeight);
 		}
+
 		if (self::isPercent($left)) {
 			$left = (int) round(($srcWidth - $newWidth) / 100 * $left);
 		}
+
 		if (self::isPercent($top)) {
 			$top = (int) round(($srcHeight - $newHeight) / 100 * $top);
 		}
+
 		if ($left < 0) {
 			$newWidth += $left;
 			$left = 0;
 		}
+
 		if ($top < 0) {
 			$newHeight += $top;
 			$top = 0;
 		}
+
 		$newWidth = min($newWidth, $srcWidth - $left);
 		$newHeight = min($newHeight, $srcHeight - $top);
 		return [$left, $top, $newWidth, $newHeight];
@@ -532,6 +555,7 @@ class Image
 				imagefilledrectangle($output, 0, 0, $width, $height, imagecolorallocatealpha($output, 0, 0, 0, 127));
 				imagecopy($output, $image->image, 0, 0, 0, 0, $width, $height);
 			}
+
 			for ($x = 0; $x < $width; $x++) {
 				for ($y = 0; $y < $height; $y++) {
 					$c = \imagecolorat($input, $x, $y);
@@ -539,6 +563,7 @@ class Image
 					\imagesetpixel($output, $x, $y, $c);
 				}
 			}
+
 			imagealphablending($output, true);
 		}
 
@@ -557,10 +582,10 @@ class Image
 
 
 	/**
-	 * Saves image to the file. Quality is in the range 0..100 for JPEG (default 85) and WEBP (default 80) and 0..9 for PNG (default 9).
+	 * Saves image to the file. Quality is in the range 0..100 for JPEG (default 85), WEBP (default 80) and AVIF (default 30) and 0..9 for PNG (default 9).
 	 * @throws ImageException
 	 */
-	public function save(string $file, int $quality = null, int $type = null): void
+	public function save(string $file, ?int $quality = null, ?int $type = null): void
 	{
 		if ($type === null) {
 			$extensions = array_flip(self::FORMATS) + ['jpg' => self::JPEG];
@@ -568,6 +593,7 @@ class Image
 			if (!isset($extensions[$ext])) {
 				throw new Nette\InvalidArgumentException("Unsupported file extension '$ext'.");
 			}
+
 			$type = $extensions[$ext];
 		}
 
@@ -576,9 +602,9 @@ class Image
 
 
 	/**
-	 * Outputs image to string. Quality is in the range 0..100 for JPEG (default 85) and WEBP (default 80) and 0..9 for PNG (default 9).
+	 * Outputs image to string. Quality is in the range 0..100 for JPEG (default 85), WEBP (default 80) and AVIF (default 30) and 0..9 for PNG (default 9).
 	 */
-	public function toString(int $type = self::JPEG, int $quality = null): string
+	public function toString(int $type = self::JPEG, ?int $quality = null): string
 	{
 		return Helpers::capture(function () use ($type, $quality) {
 			$this->output($type, $quality);
@@ -597,6 +623,7 @@ class Image
 			if (func_num_args() || PHP_VERSION_ID >= 70400) {
 				throw $e;
 			}
+
 			trigger_error('Exception in ' . __METHOD__ . "(): {$e->getMessage()} in {$e->getFile()}:{$e->getLine()}", E_USER_ERROR);
 			return '';
 		}
@@ -604,10 +631,10 @@ class Image
 
 
 	/**
-	 * Outputs image to browser. Quality is in the range 0..100 for JPEG (default 85) and WEBP (default 80) and 0..9 for PNG (default 9).
+	 * Outputs image to browser. Quality is in the range 0..100 for JPEG (default 85), WEBP (default 80) and AVIF (default 30) and 0..9 for PNG (default 9).
 	 * @throws ImageException
 	 */
-	public function send(int $type = self::JPEG, int $quality = null): void
+	public function send(int $type = self::JPEG, ?int $quality = null): void
 	{
 		header('Content-Type: ' . self::typeToMimeType($type));
 		$this->output($type, $quality);
@@ -618,7 +645,7 @@ class Image
 	 * Outputs image to browser or file.
 	 * @throws ImageException
 	 */
-	private function output(int $type, ?int $quality, string $file = null): void
+	private function output(int $type, ?int $quality, ?string $file = null): void
 	{
 		switch ($type) {
 			case self::JPEG:
@@ -640,6 +667,11 @@ class Image
 				$success = @imagewebp($this->image, $file, $quality); // @ is escalated to exception
 				break;
 
+			case self::AVIF:
+				$quality = $quality === null ? 30 : max(0, min(100, $quality));
+				$success = @imageavif($this->image, $file, $quality); // @ is escalated to exception
+				break;
+
 			case self::BMP:
 				$success = @imagebmp($this->image, $file); // @ is escalated to exception
 				break;
@@ -647,6 +679,7 @@ class Image
 			default:
 				throw new Nette\InvalidArgumentException("Unsupported image type '$type'.");
 		}
+
 		if (!$success) {
 			throw new ImageException(Helpers::getLastError() ?: 'Unknown error');
 		}
@@ -685,6 +718,7 @@ class Image
 				);
 			}
 		}
+
 		$res = $function($this->image, ...$args);
 		return $res instanceof \GdImage || (is_resource($res) && get_resource_type($res) === 'gd')
 			? $this->setImageResource($res)
@@ -712,6 +746,7 @@ class Image
 			$num = (int) $num;
 			return false;
 		}
+
 		throw new Nette\InvalidArgumentException("Expected dimension in int|string, '$num' given.");
 	}
 

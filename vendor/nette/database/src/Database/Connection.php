@@ -43,6 +43,9 @@ class Connection
 	/** @var PDO|null */
 	private $pdo;
 
+	/** @var callable(array, ResultSet): array */
+	private $rowNormalizer = [Helpers::class, 'normalizeRow'];
+
 	/** @var string|null */
 	private $sql;
 
@@ -122,6 +125,13 @@ class Connection
 	{
 		$this->connect();
 		return $this->driver;
+	}
+
+
+	public function setRowNormalizer(?callable $normalizer): self
+	{
+		$this->rowNormalizer = $normalizer;
+		return $this;
 	}
 
 
@@ -207,12 +217,13 @@ class Connection
 
 	/**
 	 * Generates and executes SQL query.
+	 * @param  literal-string  $sql
 	 */
 	public function query(string $sql, ...$params): ResultSet
 	{
 		[$this->sql, $params] = $this->preprocess($sql, ...$params);
 		try {
-			$result = new ResultSet($this, $this->sql, $params);
+			$result = new ResultSet($this, $this->sql, $params, $this->rowNormalizer);
 		} catch (PDOException $e) {
 			Arrays::invoke($this->onQuery, $this, $e);
 			throw $e;
@@ -222,6 +233,7 @@ class Connection
 	}
 
 
+	/** @deprecated  use query() */
 	public function queryArgs(string $sql, array $params): ResultSet
 	{
 		return $this->query($sql, ...$params);
@@ -229,7 +241,8 @@ class Connection
 
 
 	/**
-	 * @return array  [string, array]
+	 * @param  literal-string  $sql
+	 * @return array{string, array}
 	 */
 	public function preprocess(string $sql, ...$params): array
 	{
@@ -251,6 +264,7 @@ class Connection
 
 	/**
 	 * Shortcut for query()->fetch()
+	 * @param  literal-string  $sql
 	 */
 	public function fetch(string $sql, ...$params): ?Row
 	{
@@ -260,6 +274,7 @@ class Connection
 
 	/**
 	 * Shortcut for query()->fetchField()
+	 * @param  literal-string  $sql
 	 * @return mixed
 	 */
 	public function fetchField(string $sql, ...$params)
@@ -270,6 +285,7 @@ class Connection
 
 	/**
 	 * Shortcut for query()->fetchFields()
+	 * @param  literal-string  $sql
 	 */
 	public function fetchFields(string $sql, ...$params): ?array
 	{
@@ -279,6 +295,7 @@ class Connection
 
 	/**
 	 * Shortcut for query()->fetchPairs()
+	 * @param  literal-string  $sql
 	 */
 	public function fetchPairs(string $sql, ...$params): array
 	{
@@ -288,6 +305,7 @@ class Connection
 
 	/**
 	 * Shortcut for query()->fetchAll()
+	 * @param  literal-string  $sql
 	 */
 	public function fetchAll(string $sql, ...$params): array
 	{

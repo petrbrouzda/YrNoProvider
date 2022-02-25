@@ -9,6 +9,7 @@ declare(strict_types=1);
 
 namespace Tracy;
 
+use Ds;
 use Tracy\Dumper\Describer;
 use Tracy\Dumper\Exposer;
 use Tracy\Dumper\Renderer;
@@ -33,7 +34,8 @@ class Dumper
 		DEBUGINFO = 'debuginfo', // use magic method __debugInfo if exists (defaults to false)
 		KEYS_TO_HIDE = 'keystohide', // sensitive keys not displayed (defaults to [])
 		SCRUBBER = 'scrubber', // detects sensitive keys not to be displayed
-		THEME = 'theme'; // color theme (defaults to light)
+		THEME = 'theme', // color theme (defaults to light)
+		HASH = 'hash'; // show object and reference hashes (defaults to true)
 
 	public const
 		LOCATION_CLASS = 0b0001, // shows where classes are defined
@@ -73,6 +75,7 @@ class Dumper
 	/** @var array */
 	public static $objectExporters = [
 		\Closure::class => [Exposer::class, 'exposeClosure'],
+		\UnitEnum::class => [Exposer::class, 'exposeEnum'],
 		\ArrayObject::class => [Exposer::class, 'exposeArrayObject'],
 		\SplFileInfo::class => [Exposer::class, 'exposeSplFileInfo'],
 		\SplObjectStorage::class => [Exposer::class, 'exposeSplObjectStorage'],
@@ -80,6 +83,8 @@ class Dumper
 		\DOMNode::class => [Exposer::class, 'exposeDOMNode'],
 		\DOMNodeList::class => [Exposer::class, 'exposeDOMNodeList'],
 		\DOMNamedNodeMap::class => [Exposer::class, 'exposeDOMNodeList'],
+		Ds\Collection::class => [Exposer::class, 'exposeDsCollection'],
+		Ds\Map::class => [Exposer::class, 'exposeDsMap'],
 	];
 
 	/** @var Describer */
@@ -95,7 +100,7 @@ class Dumper
 	 */
 	public static function dump($var, array $options = [])
 	{
-		if (PHP_SAPI === 'cli' || PHP_SAPI === 'phpdbg') {
+		if (Helpers::isCli()) {
 			$useColors = self::$terminalColors && Helpers::detectColors();
 			$dumper = new self($options);
 			fwrite(STDOUT, $dumper->asTerminal($var, $useColors ? self::$terminalColors : []));
@@ -108,6 +113,7 @@ class Dumper
 			self::renderAssets();
 			echo self::toHtml($var, $options);
 		}
+
 		return $var;
 	}
 
@@ -148,17 +154,18 @@ class Dumper
 		if (Debugger::$productionMode === true || $sent) {
 			return;
 		}
+
 		$sent = true;
 
 		$nonce = Helpers::getNonce();
 		$nonceAttr = $nonce ? ' nonce="' . Helpers::escapeHtml($nonce) . '"' : '';
-		$s = file_get_contents(__DIR__ . '/../Toggle/toggle.css')
+		$s = file_get_contents(__DIR__ . '/../assets/toggle.css')
 			. file_get_contents(__DIR__ . '/assets/dumper-light.css')
 			. file_get_contents(__DIR__ . '/assets/dumper-dark.css');
 		echo "<style{$nonceAttr}>", str_replace('</', '<\/', Helpers::minifyCss($s)), "</style>\n";
 
 		if (!Debugger::isEnabled()) {
-			$s = '(function(){' . file_get_contents(__DIR__ . '/../Toggle/toggle.js') . '})();'
+			$s = '(function(){' . file_get_contents(__DIR__ . '/../assets/toggle.js') . '})();'
 				. '(function(){' . file_get_contents(__DIR__ . '/../Dumper/assets/dumper.js') . '})();';
 			echo "<script{$nonceAttr}>", str_replace(['<!--', '</s'], ['<\!--', '<\/s'], Helpers::minifyJs($s)), "</script>\n";
 		}
@@ -185,6 +192,7 @@ class Dumper
 		} elseif (isset($options[self::SNAPSHOT])) {
 			$tmp = &$options[self::SNAPSHOT];
 		}
+
 		if (isset($tmp)) {
 			$tmp[0] = $tmp[0] ?? [];
 			$tmp[1] = $tmp[1] ?? [];
@@ -202,6 +210,7 @@ class Dumper
 		$renderer->sourceLocation = !(~$location & self::LOCATION_SOURCE);
 		$renderer->classLocation = !(~$location & self::LOCATION_CLASS);
 		$renderer->theme = $options[self::THEME] ?? $renderer->theme;
+		$renderer->hash = $options[self::HASH] ?? true;
 	}
 
 
@@ -216,6 +225,7 @@ class Dumper
 			$model = $this->describer->describe([$key => $var]);
 			$model->value = $model->value[0][1];
 		}
+
 		return $this->renderer->renderAsHtml($model);
 	}
 

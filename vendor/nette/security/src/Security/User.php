@@ -33,6 +33,11 @@ class User
 		MANUAL = IUserStorage::MANUAL,
 		INACTIVITY = IUserStorage::INACTIVITY;
 
+	/** Log-out reason */
+	public const
+		LOGOUT_MANUAL = UserStorage::LOGOUT_MANUAL,
+		LOGOUT_INACTIVITY = UserStorage::LOGOUT_INACTIVITY;
+
 	/** @var string  default role for unauthenticated user */
 	public $guestRole = 'guest';
 
@@ -255,27 +260,23 @@ class User
 
 
 	/**
-	 * Enables log out after inactivity (like '20 minutes'). Accepts flag IUserStorage::CLEAR_IDENTITY.
+	 * Enables log out after inactivity (like '20 minutes').
 	 * @param  string|null  $expire
-	 * @param  int  $flags
+	 * @param  int|bool  $clearIdentity
 	 * @return static
 	 */
-	public function setExpiration($expire, /*int*/$flags = 0)
+	public function setExpiration($expire, $clearIdentity = null)
 	{
-		$clearIdentity = $flags === IUserStorage::CLEAR_IDENTITY;
 		if ($expire !== null && !is_string($expire)) {
 			trigger_error("Expiration should be a string like '20 minutes' etc.", E_USER_DEPRECATED);
 		}
-		if (is_bool($flags)) {
-			trigger_error(__METHOD__ . '() second parameter $whenBrowserIsClosed was removed.', E_USER_DEPRECATED);
-		}
 		if (func_num_args() > 2) {
 			$clearIdentity = $clearIdentity || func_get_arg(2);
-			trigger_error(__METHOD__ . '() third parameter is deprecated, use flag setExpiration($time, IUserStorage::CLEAR_IDENTITY)', E_USER_DEPRECATED);
+			trigger_error(__METHOD__ . '() third parameter is deprecated, use second one: setExpiration($time, true|false)', E_USER_DEPRECATED);
 		}
 
 		$arg = $this->storage instanceof UserStorage
-			? $clearIdentity
+			? (bool) $clearIdentity
 			: ($clearIdentity ? IUserStorage::CLEAR_IDENTITY : 0);
 		$this->storage->setExpiration($expire, $arg);
 		return $this;
@@ -283,7 +284,7 @@ class User
 
 
 	/**
-	 * Why was user logged out?
+	 * Why was user logged out? Returns LOGOUT_MANUAL or LOGOUT_INACTIVITY.
 	 */
 	final public function getLogoutReason(): ?int
 	{

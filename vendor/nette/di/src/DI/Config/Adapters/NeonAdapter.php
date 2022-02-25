@@ -25,13 +25,26 @@ final class NeonAdapter implements Nette\DI\Config\Adapter
 
 	private const PREVENT_MERGING_SUFFIX = '!';
 
+	/** @var string */
+	private $file;
+
 
 	/**
 	 * Reads configuration from NEON file.
 	 */
 	public function load(string $file): array
 	{
-		return $this->process((array) Neon\Neon::decode(Nette\Utils\FileSystem::read($file)));
+		$input = Nette\Utils\FileSystem::read($file);
+		if (substr($input, 0, 3) === "\u{FEFF}") { // BOM
+			$input = substr($input, 3);
+		}
+
+		$this->file = $file;
+		$decoder = new Neon\Decoder;
+		$node = $decoder->parseToNode($input);
+		$traverser = new Neon\Traverser;
+		$node = $traverser->traverse($node, [$this, 'removeUnderscoreVisitor']);
+		return $this->process((array) $node->toValue());
 	}
 
 
@@ -42,8 +55,13 @@ final class NeonAdapter implements Nette\DI\Config\Adapter
 		foreach ($arr as $key => $val) {
 			if (is_string($key) && substr($key, -1) === self::PREVENT_MERGING_SUFFIX) {
 				if (!is_array($val) && $val !== null) {
-					throw new Nette\DI\InvalidConfigurationException("Replacing operator is available only for arrays, item '$key' is not array.");
+					throw new Nette\DI\InvalidConfigurationException(sprintf(
+						"Replacing operator is available only for arrays, item '%s' is not array (used in '%s')",
+						$key,
+						$this->file
+					));
 				}
+
 				$key = substr($key, 0, -1);
 				$val[Helpers::PREVENT_MERGING] = true;
 			}
@@ -60,17 +78,21 @@ final class NeonAdapter implements Nette\DI\Config\Adapter
 							$st->arguments
 						);
 					}
+
 					$val = $tmp;
 				} else {
 					$tmp = $this->process([$val->value]);
 					if (is_string($tmp[0]) && strpos($tmp[0], '?') !== false) {
-						trigger_error('Operator ? is deprecated in config files.', E_USER_DEPRECATED);
+						trigger_error("Operator ? is deprecated in config files (used in '$this->file')", E_USER_DEPRECATED);
 					}
+
 					$val = new Statement($tmp[0], $this->process($val->attributes));
 				}
 			}
+
 			$res[$key] = $val;
 		}
+
 		return $res;
 	}
 
@@ -123,6 +145,27 @@ final class NeonAdapter implements Nette\DI\Config\Adapter
 				$entity = $entity[0] . '::' . $entity[1];
 			}
 		}
+
 		return new Neon\Entity($entity, $val->arguments);
+	}
+
+
+	public function removeUnderscoreVisitor(Neon\Node $node)
+	{
+		if (!$node instanceof Neon\Node\EntityNode) {
+			return;
+		}
+
+		$index = false;
+		foreach ($node->attributes as $i => $attr) {
+			if ($index) {
+				$attr->key = $attr->key ?? new Neon\Node\LiteralNode((string) $i);
+			}
+
+			if ($attr->value instanceof Neon\Node\LiteralNode && $attr->value->value === '_') {
+				unset($node->attributes[$i]);
+				$index = true;
+			}
+		}
 	}
 }

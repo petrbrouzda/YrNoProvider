@@ -70,7 +70,6 @@ final class LatteExtension extends Nette\DI\CompilerExtension
 		}
 
 		$builder->addDefinition($this->prefix('templateFactory'))
-			->setType(Nette\Application\UI\TemplateFactory::class)
 			->setFactory(ApplicationLatte\TemplateFactory::class)
 			->setArguments(['templateClass' => $config->templateClass]);
 
@@ -100,10 +99,17 @@ final class LatteExtension extends Nette\DI\CompilerExtension
 	}
 
 
-	public static function initLattePanel(ApplicationLatte\TemplateFactory $factory, Tracy\Bar $bar, bool $all = false)
-	{
+	public static function initLattePanel(
+		Nette\Application\UI\TemplateFactory $factory,
+		Tracy\Bar $bar,
+		bool $all = false
+	) {
+		if (!$factory instanceof ApplicationLatte\TemplateFactory) {
+			return;
+		}
+
 		$factory->onCreate[] = function (ApplicationLatte\Template $template) use ($bar, $all) {
-			$control = $template->control ?? null;
+			$control = $template->getLatte()->getProviders()['uiControl'] ?? null;
 			if ($all || $control instanceof Nette\Application\UI\Presenter) {
 				$bar->addPanel(new Latte\Bridges\Tracy\LattePanel(
 					$template->getLatte(),
@@ -125,12 +131,14 @@ final class LatteExtension extends Nette\DI\CompilerExtension
 			} else {
 				[$macro, $method] = explode('::', $macro);
 			}
+
 			$definition->addSetup('?->onCompile[] = function ($engine) { ?->' . $method . '($engine->getCompiler()); }', ['@self', $macro]);
 
 		} else {
 			if (strpos($macro, '::') === false && class_exists($macro)) {
 				$macro .= '::install';
 			}
+
 			$definition->addSetup('?->onCompile[] = function ($engine) { ' . $macro . '($engine->getCompiler()); }', ['@self']);
 		}
 	}

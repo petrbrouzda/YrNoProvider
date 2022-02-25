@@ -40,12 +40,13 @@ class Loader
 	public function load(string $file, ?bool $merge = true): array
 	{
 		if (!is_file($file) || !is_readable($file)) {
-			throw new Nette\FileNotFoundException("File '$file' is missing or is not readable.");
+			throw new Nette\FileNotFoundException(sprintf("File '%s' is missing or is not readable.", $file));
 		}
 
 		if (isset($this->loadedFiles[$file])) {
-			throw new Nette\InvalidStateException("Recursive included file '$file'");
+			throw new Nette\InvalidStateException(sprintf("Recursive included file '%s'", $file));
 		}
+
 		$this->loadedFiles[$file] = true;
 
 		$this->dependencies[] = $file;
@@ -60,6 +61,7 @@ class Loader
 				$res = Nette\Schema\Helpers::merge($this->load($include, $merge), $res);
 			}
 		}
+
 		unset($data[self::INCLUDES_KEY], $this->loadedFiles[$file]);
 
 		if ($merge === false) {
@@ -67,6 +69,7 @@ class Loader
 		} else {
 			$res = Nette\Schema\Helpers::merge($data, $res);
 		}
+
 		return $res;
 	}
 
@@ -77,7 +80,7 @@ class Loader
 	public function save(array $data, string $file): void
 	{
 		if (file_put_contents($file, $this->getAdapter($file)->dump($data)) === false) {
-			throw new Nette\IOException("Cannot write file '$file'.");
+			throw new Nette\IOException(sprintf("Cannot write file '%s'.", $file));
 		}
 	}
 
@@ -118,8 +121,9 @@ class Loader
 	{
 		$extension = strtolower(pathinfo($file, PATHINFO_EXTENSION));
 		if (!isset($this->adapters[$extension])) {
-			throw new Nette\InvalidArgumentException("Unknown file extension '$file'.");
+			throw new Nette\InvalidArgumentException(sprintf("Unknown file extension '%s'.", $file));
 		}
+
 		return is_object($this->adapters[$extension])
 			? $this->adapters[$extension]
 			: new $this->adapters[$extension];

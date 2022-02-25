@@ -15,13 +15,13 @@
 		}
 	],
 	"require": {
-		"php": ">=7.1 <8.1",
+		"php": ">=7.1 <8.2",
 		"ext-tokenizer": "*",
-		"nette/neon": "^3.0",
-		"nette/php-generator": "^3.3.3",
+		"nette/neon": "^3.3",
+		"nette/php-generator": "^3.5.4",
 		"nette/robot-loader": "^3.2",
 		"nette/schema": "^1.1",
-		"nette/utils": "^3.2"
+		"nette/utils": "^3.1.6"
 	},
 	"require-dev": {
 		"nette/tester": "^2.2",

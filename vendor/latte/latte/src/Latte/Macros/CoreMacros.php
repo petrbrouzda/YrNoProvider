@@ -119,6 +119,7 @@ class CoreMacros extends MacroSet
 			$code .= 'foreach (array_intersect_key(' . Latte\PhpHelpers::dump($vars) . ', $this->params) as $ʟ_v => $ʟ_l) { '
 				. 'trigger_error("Variable \$$ʟ_v overwritten in foreach on line $ʟ_l"); } ';
 		}
+
 		$code = $code
 			? 'if (!$this->getReferringTemplate() || $this->getReferenceType() === "extends") { ' . $code . '}'
 			: '';
@@ -136,8 +137,9 @@ class CoreMacros extends MacroSet
 	{
 		$node->validate(null);
 		if ($node->data->capture = ($node->args === '')) {
-			return $writer->write('ob_start(function () {}) %node.line;');
+			return $writer->write('ob_start(function () {}) %node.line; try {');
 		}
+
 		if ($node->prefix === $node::PREFIX_TAG) {
 			for ($id = 0, $tmp = $node->htmlNode; $tmp = $tmp->parentNode; $id++);
 			$node->htmlNode->data->id = $node->htmlNode->data->id ?? $id;
@@ -148,6 +150,7 @@ class CoreMacros extends MacroSet
 				$node->htmlNode->data->id
 			);
 		}
+
 		return $writer->write('if (%node.args) %node.line {');
 	}
 
@@ -162,16 +165,25 @@ class CoreMacros extends MacroSet
 		}
 
 		$node->validate('condition');
-		return $writer->write(
-			'if (%node.args) %node.line '
-			. (isset($node->data->else)
-				? '{ ob_end_clean(); echo ob_get_clean(); }'
-				: 'echo ob_get_clean();')
-			. ' else '
-			. (isset($node->data->else)
-				? '{ $ʟ_tmp = ob_get_clean(); ob_end_clean(); echo $ʟ_tmp; }'
-				: 'ob_end_clean();')
-		);
+
+		if (isset($node->data->else)) {
+			return $writer->write('
+					} finally {
+						$ʟ_ifB = ob_get_clean();
+					}
+				} finally {
+					$ʟ_ifA = ob_get_clean();
+				}
+				echo (%node.args) ? $ʟ_ifA : $ʟ_ifB %node.line;
+			');
+		}
+
+		return $writer->write('
+			} finally {
+				$ʟ_ifA = ob_get_clean();
+			}
+			if (%node.args) %node.line { echo $ʟ_ifA; }
+		');
 	}
 
 
@@ -183,6 +195,7 @@ class CoreMacros extends MacroSet
 		if ($node->args !== '' && Helpers::startsWith($node->args, 'if')) {
 			throw new CompileException('Arguments are not allowed in {else}, did you mean {elseif}?');
 		}
+
 		$node->validate(false, ['if', 'ifset', 'foreach', 'ifchanged', 'try', 'first', 'last', 'sep']);
 
 		$parent = $node->parentNode;
@@ -192,7 +205,7 @@ class CoreMacros extends MacroSet
 
 		$parent->data->else = true;
 		if ($parent->name === 'if' && $parent->data->capture) {
-			return $writer->write('ob_start(function () {}) %node.line;');
+			return $writer->write('ob_start(function () {}) %node.line; try {');
 
 		} elseif ($parent->name === 'foreach') {
 			return $writer->write('$iterations++; } if ($iterator->isEmpty()) %node.line {');
@@ -203,10 +216,11 @@ class CoreMacros extends MacroSet
 			return $res;
 
 		} elseif ($parent->name === 'try') {
-			$node->openingCode = $parent->data->code;
-			$parent->closingCode = '<?php } ?>';
+			$node->openingCode = $parent->data->codeCatch;
+			$parent->closingCode = $parent->data->codeFinally;
 			return '';
 		}
+
 		return $writer->write('} else %node.line {');
 	}
 
@@ -236,6 +250,8 @@ class CoreMacros extends MacroSet
 		if (!$node->prefix || $node->prefix !== MacroNode::PREFIX_NONE) {
 			throw new CompileException("Unknown {$node->getNotation()}, use n:{$node->name} attribute.");
 		}
+
+		$node->validate(false);
 	}
 
 
@@ -244,11 +260,12 @@ class CoreMacros extends MacroSet
 	 */
 	public function macroEndIfContent(MacroNode $node, PhpWriter $writer): void
 	{
-		$node->openingCode = '<?php ob_start(function () {}); ?>';
-		$node->innerContent = '<?php ob_start(); ?>'
+		$id = ++$this->idCounter;
+		$node->openingCode = '<?php ob_start(function () {}); try { ?>';
+		$node->innerContent = '<?php ob_start(); try { ?>'
 			. $node->innerContent
-			. '<?php $ʟ_ifc = ob_get_flush(); ?>';
-		$node->closingCode = '<?php if (rtrim($ʟ_ifc) === "") { ob_end_clean(); } else { echo ob_get_clean(); } ?>';
+			. "<?php } finally { \$ʟ_ifc[$id] = rtrim(ob_get_flush()) === ''; } ?>";
+		$node->closingCode = "<?php } finally { if (\$ʟ_ifc[$id] ?? null) { ob_end_clean(); } else { echo ob_get_clean(); } } ?>";
 	}
 
 
@@ -278,17 +295,24 @@ class CoreMacros extends MacroSet
 	 */
 	public function macroTry(MacroNode $node, PhpWriter $writer): void
 	{
+		$node->replaced = false;
 		$node->validate(false);
 		for ($id = 0, $tmp = $node; $tmp = $tmp->closest(['try']); $id++);
-		$node->data->code = $writer->write('<?php echo ob_get_clean();
-			} catch (\Throwable $ʟ_e) {
-			$iterator = $ʟ_it = $ʟ_try[%0_var][1];
-			while (ob_get_level() > $ʟ_try[%0_var][0]) ob_end_clean();
-			if (!($ʟ_e instanceof LR\RollbackException) && isset($this->global->coreExceptionHandler)) {
-				($this->global->coreExceptionHandler)($ʟ_e, $this);
+		$node->data->codeCatch = '<?php
+			} catch (Throwable $ʟ_e) {
+				ob_end_clean();
+				if (!($ʟ_e instanceof LR\RollbackException) && isset($this->global->coreExceptionHandler)) {
+					($this->global->coreExceptionHandler)($ʟ_e, $this);
+				}
+			?>';
+		$node->data->codeFinally = $writer->write('<?php
+				ob_start();
+			} finally {
+				echo ob_get_clean();
+				$iterator = $ʟ_it = $ʟ_try[%0_var][0];
 			} ?>', $id);
-		$node->openingCode = $writer->write('<?php $ʟ_try[%var] = [ob_get_level(), $ʟ_it ?? null]; ob_start(function () {}); try %node.line { ?>', $id);
-		$node->closingCode = $node->data->code . '<?php } ?>';
+		$node->openingCode = $writer->write('<?php $ʟ_try[%var] = [$ʟ_it ?? null]; ob_start(function () {}); try %node.line { ?>', $id);
+		$node->closingCode = $node->data->codeCatch . $node->data->codeFinally;
 	}
 
 
@@ -301,6 +325,7 @@ class CoreMacros extends MacroSet
 		if (!$parent || isset($parent->data->catch)) {
 			throw new CompileException('Tag {rollback} must be inside {try} ... {/try}.');
 		}
+
 		$node->validate(false);
 
 		return $writer->write('throw new LR\RollbackException;');
@@ -314,22 +339,30 @@ class CoreMacros extends MacroSet
 	{
 		if ($node->closing) {
 			if (strpos($node->content, '<?php') === false) {
-				$value = PhpHelpers::dump($node->content);
+				$tmp = $node->content;
 				$node->content = '';
-			} else {
-				$node->openingCode = '<?php ob_start(function () {}) ?>' . $node->openingCode;
-				$value = 'ob_get_clean()';
+				return $writer->write(
+					'$ʟ_fi = new LR\FilterInfo(%var);
+					echo %modifyContent($this->filters->filterContent("translate", $ʟ_fi, %raw)) %node.line;',
+					implode('', $node->context),
+					PhpHelpers::dump($tmp)
+				);
 			}
 
+			$node->openingCode = '<?php ob_start(function () {}); try { ?>' . $node->openingCode;
 			return $writer->write(
-				'$ʟ_fi = new LR\FilterInfo(%var); echo %modifyContent($this->filters->filterContent("translate", $ʟ_fi, %raw)) %node.line;',
-				implode($node->context),
-				$value
+				'} finally {
+					$ʟ_tmp = ob_get_clean();
+				}
+				$ʟ_fi = new LR\FilterInfo(%var);
+				echo %modifyContent($this->filters->filterContent("translate", $ʟ_fi, $ʟ_tmp)) %node.line;',
+				implode('', $node->context)
 			);
 
 		} elseif ($node->empty = ($node->args !== '')) {
 			return $writer->write('echo %modify(($this->filters->translate)(%node.args)) %node.line;');
 		}
+
 		return '';
 	}
 
@@ -339,7 +372,7 @@ class CoreMacros extends MacroSet
 	 */
 	public function macroInclude(MacroNode $node, PhpWriter $writer): string
 	{
-		[$file, ] = $node->tokenizer->fetchWordWithModifier('file');
+		[$file,] = $node->tokenizer->fetchWordWithModifier('file');
 		$mode = 'include';
 		if ($node->tokenizer->isNext('with') && !$node->tokenizer->isPrev(',')) {
 			$node->tokenizer->consumeValue('with');
@@ -352,13 +385,14 @@ class CoreMacros extends MacroSet
 		if ($node->modifiers && !$noEscape) {
 			$node->modifiers .= '|escape';
 		}
+
 		return $writer->write(
 			'$this->createTemplate(%word, %node.array? + $this->params, %var)->renderToContentType(%raw) %node.line;',
 			$file,
 			$mode,
 			$node->modifiers
 				? $writer->write('function ($s, $type) { $ʟ_fi = new LR\FilterInfo($type); return %modifyContent($s); }')
-				: PhpHelpers::dump($noEscape ? null : implode($node->context))
+				: PhpHelpers::dump($noEscape ? null : implode('', $node->context))
 		);
 	}
 
@@ -377,7 +411,7 @@ class CoreMacros extends MacroSet
 				if (isset($this->global->coreExceptionHandler)) { ob_end_clean(); ($this->global->coreExceptionHandler)($ʟ_e, $this); }
 				else { echo ob_get_clean(); throw $ʟ_e; }
 			}',
-			implode($node->context)
+			implode('', $node->context)
 		);
 	}
 
@@ -393,9 +427,10 @@ class CoreMacros extends MacroSet
 		} elseif (!Helpers::startsWith($variable, '$')) {
 			throw new CompileException("Invalid capture block variable '$variable'");
 		}
+
 		$this->checkExtraArgs($node);
 		$node->data->variable = $variable;
-		return $writer->write('ob_start(function () {}) %node.line;');
+		return $writer->write('ob_start(function () {}) %node.line; try {');
 	}
 
 
@@ -404,14 +439,17 @@ class CoreMacros extends MacroSet
 	 */
 	public function macroCaptureEnd(MacroNode $node, PhpWriter $writer): string
 	{
-		$body = in_array(implode($node->context), [Engine::CONTENT_HTML, Engine::CONTENT_XHTML], true)
+		$body = in_array(implode('', $node->context), [Engine::CONTENT_HTML, Engine::CONTENT_XHTML], true)
 			? 'ob_get_length() ? new LR\\Html(ob_get_clean()) : ob_get_clean()'
 			: 'ob_get_clean()';
 		return $writer->write(
-			'$ʟ_fi = new LR\FilterInfo(%var); %raw = %modifyContent(%raw);',
-			implode($node->context),
-			$node->data->variable,
-			$body
+			'} finally {
+				$ʟ_tmp = %raw;
+			}
+			$ʟ_fi = new LR\FilterInfo(%var); %raw = %modifyContent($ʟ_tmp);',
+			$body,
+			implode('', $node->context),
+			$node->data->variable
 		);
 	}
 
@@ -423,9 +461,9 @@ class CoreMacros extends MacroSet
 	{
 		$node->validate(false);
 		$node->openingCode = $writer->write(in_array($node->context[0], [Engine::CONTENT_HTML, Engine::CONTENT_XHTML], true)
-			? "<?php ob_start('Latte\\Runtime\\Filters::spacelessHtmlHandler', 4096) %node.line; ?>"
-			: "<?php ob_start('Latte\\Runtime\\Filters::spacelessText', 4096) %node.line; ?>");
-		$node->closingCode = '<?php ob_end_flush(); ?>';
+			? "<?php ob_start('Latte\\Runtime\\Filters::spacelessHtmlHandler', 4096) %node.line; try { ?>"
+			: "<?php ob_start('Latte\\Runtime\\Filters::spacelessText', 4096) %node.line; try { ?>");
+		$node->closingCode = '<?php } finally { ob_end_flush(); } ?>';
 	}
 
 
@@ -438,6 +476,7 @@ class CoreMacros extends MacroSet
 		if ($node->data->do = ($node->args === '')) {
 			return $writer->write('do %node.line {');
 		}
+
 		return $writer->write('while (%node.args) %node.line {');
 	}
 
@@ -451,6 +490,7 @@ class CoreMacros extends MacroSet
 			$node->validate(true);
 			return $writer->write('} while (%node.args);');
 		}
+
 		return '}';
 	}
 
@@ -465,6 +505,7 @@ class CoreMacros extends MacroSet
 		if ($node->modifiers) {
 			throw new CompileException('Only modifiers |noiterator and |nocheck are allowed here.');
 		}
+
 		$node->validate(true);
 		$node->openingCode = '<?php $iterations = 0; ';
 		$args = $writer->formatArgs();
@@ -474,6 +515,7 @@ class CoreMacros extends MacroSet
 				$this->overwrittenVars[$m[$i]][] = $node->startLine;
 			}
 		}
+
 		if (
 			!$noIterator
 			&& preg_match('#\$iterator\W|\Wget_defined_vars\W#', $this->getCompiler()->expandTokens($node->content))
@@ -496,6 +538,7 @@ class CoreMacros extends MacroSet
 		if (!$node->closest(['foreach'])) {
 			throw new CompileException('Tag ' . $node->getNotation() . ' must be inside {foreach} ... {/foreach}.');
 		}
+
 		$node->data->begin = $node->args !== '';
 	}
 
@@ -539,14 +582,17 @@ class CoreMacros extends MacroSet
 			$ancestors = ['for', 'foreach', 'while'];
 			$cmd = str_replace('If', '', $node->name);
 		}
+
 		if (!$node->closest($ancestors)) {
 			throw new CompileException('Tag ' . $node->getNotation() . ' is unexpected here.');
 		}
+
 		$node->validate('condition');
 
 		if ($node->parentNode->prefix === $node::PREFIX_NONE) {
 			return $writer->write("if (%node.args) %node.line { echo \"</{$node->parentNode->htmlNode->name}>\\n\"; $cmd; }");
 		}
+
 		return $writer->write("if (%node.args) %node.line $cmd;");
 	}
 
@@ -559,6 +605,7 @@ class CoreMacros extends MacroSet
 		if (isset($node->htmlNode->attrs['class'])) {
 			throw new CompileException('It is not possible to combine class with n:class.');
 		}
+
 		$node->validate(true);
 		return $writer->write('echo ($ʟ_tmp = array_filter(%node.array)) ? \' class="\' . %escape(implode(" ", array_unique($ʟ_tmp))) . \'"\' : "" %node.line;');
 	}
@@ -585,6 +632,7 @@ class CoreMacros extends MacroSet
 		} elseif (preg_match('(style$|script$)iA', $node->htmlNode->name)) {
 			throw new CompileException("Attribute {$node->getNotation()} is not allowed in <script> or <style>");
 		}
+
 		$node->validate(true);
 	}
 
@@ -638,6 +686,7 @@ class CoreMacros extends MacroSet
 		if (function_exists($func = 'debugbreak') || function_exists($func = 'xdebug_break')) {
 			return $writer->write(($node->args === '' ? '' : 'if (%node.args) ') . "$func() %node.line;");
 		}
+
 		return '';
 	}
 
@@ -651,6 +700,7 @@ class CoreMacros extends MacroSet
 		if (isset($node->parentNode->data->default)) {
 			throw new CompileException('Tag {default} must follow after {case} clause.');
 		}
+
 		return $writer->write('} elseif (in_array($ʟ_switch, %node.array, true)) %node.line {');
 	}
 
@@ -667,6 +717,7 @@ class CoreMacros extends MacroSet
 			if (isset($node->parentNode->data->default)) {
 				throw new CompileException('Tag {switch} may only contain one {default} clause.');
 			}
+
 			$node->parentNode->data->default = true;
 			return $writer->write('} else %node.line {');
 
@@ -674,6 +725,7 @@ class CoreMacros extends MacroSet
 			$node->setArgs($node->args . $node->modifiers);
 			$node->modifiers = '';
 		}
+
 		$node->validate(true);
 
 		$var = true;
@@ -686,7 +738,7 @@ class CoreMacros extends MacroSet
 				&& $tokens->isCurrent($tokens::T_SYMBOL)
 				&& (
 					$tokens->isNext(',', '=>', '=')
-					|| !$tokens->isNext()
+					|| !$tokens->isNext(...$tokens::SIGNIFICANT)
 				)
 			) {
 				trigger_error("Inside tag {{$node->name} {$node->args}} should be '{$tokens->currentValue()}' replaced with '\${$tokens->currentValue()}'", E_USER_DEPRECATED);
@@ -704,12 +756,14 @@ class CoreMacros extends MacroSet
 				} else {
 					$res->append('$' . ltrim($tokens->currentValue(), '$'));
 				}
+
 				$var = null;
 
 			} elseif ($tokens->isCurrent('=', '=>') && $tokens->depth === 0) {
 				if ($tokens->isCurrent('=>')) {
 					trigger_error("Inside tag {{$node->name} {$node->args}} should be => replaced with =", E_USER_DEPRECATED);
 				}
+
 				$res->append($node->name === 'default' ? '=>' : '=');
 				$var = false;
 
@@ -717,6 +771,7 @@ class CoreMacros extends MacroSet
 				if ($var === null) {
 					$res->append($node->name === 'default' ? '=>null' : '=null');
 				}
+
 				$res->append($node->name === 'default' ? ',' : ';');
 				$var = true;
 				$hasType = false;
@@ -728,9 +783,11 @@ class CoreMacros extends MacroSet
 				$res->append($tokens->currentToken());
 			}
 		}
+
 		if ($var === null) {
 			$res->append($node->name === 'default' ? '=>null' : '=null');
 		}
+
 		$res = $writer->preprocess($res);
 		$out = $writer->quotingPass($res)->joinAll();
 		return $writer->write($node->name === 'default'
@@ -767,6 +824,7 @@ class CoreMacros extends MacroSet
 		) {
 			throw new CompileException($node->getNotation() . ' is allowed only in template header.');
 		}
+
 		$compiler = $this->getCompiler();
 		if (strpos($node->args, 'xhtml') !== false) {
 			$type = $compiler::CONTENT_XHTML;
@@ -783,6 +841,7 @@ class CoreMacros extends MacroSet
 		} else {
 			$type = $compiler::CONTENT_TEXT;
 		}
+
 		$compiler->setContentType($type);
 
 		if (strpos($node->args, '/') && !$node->htmlNode) {
@@ -791,6 +850,7 @@ class CoreMacros extends MacroSet
 				'Content-Type: ' . $node->args
 			);
 		}
+
 		return '';
 	}
 
@@ -803,18 +863,21 @@ class CoreMacros extends MacroSet
 		if (!$this->getCompiler()->isInHead()) {
 			throw new CompileException($node->getNotation() . ' is allowed only in template header.');
 		}
+
 		if ($node->modifiers) {
 			$node->setArgs($node->args . $node->modifiers);
 			$node->modifiers = '';
 		}
+
 		$node->validate(true);
 
 		$tokens = $node->tokenizer;
 		$params = [];
-		while ($tokens->isNext()) {
+		while ($tokens->isNext(...$tokens::SIGNIFICANT)) {
 			if ($tokens->nextToken($tokens::T_SYMBOL, '?', 'null', '\\')) { // type
 				$tokens->nextAll($tokens::T_SYMBOL, '\\', '|', '[', ']', 'null');
 			}
+
 			$param = $tokens->consumeValue($tokens::T_VARIABLE);
 			$default = $tokens->nextToken('=')
 				? $tokens->joinUntilSameDepth(',')
@@ -826,10 +889,11 @@ class CoreMacros extends MacroSet
 				substr($param, 1),
 				$default
 			);
-			if ($tokens->isNext()) {
+			if ($tokens->isNext(...$tokens::SIGNIFICANT)) {
 				$tokens->consumeValue(',');
 			}
 		}
+
 		$this->getCompiler()->paramsExtraction = implode('', $params);
 	}
 
@@ -843,6 +907,7 @@ class CoreMacros extends MacroSet
 			$node->setArgs($node->args . $node->modifiers);
 			$node->modifiers = '';
 		}
+
 		$node->validate(true);
 
 		$type = trim($node->tokenizer->joinUntil($node->tokenizer::T_VARIABLE));
@@ -873,6 +938,7 @@ class CoreMacros extends MacroSet
 		if (!$this->getCompiler()->isInHead()) {
 			throw new CompileException($node->getNotation() . ' is allowed only in template header.');
 		}
+
 		$node->validate('class name');
 	}
 

@@ -433,7 +433,6 @@ abstract class BaseControl extends Nette\ComponentModel\Component implements Con
 
 	/**
 	 * Adds a validation condition a returns new branch.
-	 * @return Rules      new branch
 	 */
 	public function addCondition($validator, $value = null): Rules
 	{
@@ -443,11 +442,21 @@ abstract class BaseControl extends Nette\ComponentModel\Component implements Con
 
 	/**
 	 * Adds a validation condition based on another control a returns new branch.
-	 * @return Rules      new branch
 	 */
 	public function addConditionOn(Control $control, $validator, $value = null): Rules
 	{
 		return $this->rules->addConditionOn($control, $validator, $value);
+	}
+
+
+	/**
+	 * Adds a input filter callback.
+	 * @return static
+	 */
+	public function addFilter(callable $filter)
+	{
+		$this->getRules()->addFilter($filter);
+		return $this;
 	}
 
 

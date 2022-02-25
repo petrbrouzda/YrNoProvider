@@ -53,6 +53,7 @@ class Strings
 		} elseif (!extension_loaded('iconv')) {
 			throw new Nette\NotSupportedException(__METHOD__ . '() requires ICONV extension that is not loaded.');
 		}
+
 		return iconv('UTF-32BE', 'UTF-8//IGNORE', pack('N', $code));
 	}
 
@@ -88,7 +89,7 @@ class Strings
 	 * Returns a part of UTF-8 string specified by starting position and length. If start is negative,
 	 * the returned string will start at the start'th character from the end of string.
 	 */
-	public static function substring(string $s, int $start, int $length = null): string
+	public static function substring(string $s, int $start, ?int $length = null): string
 	{
 		if (function_exists('mb_substr')) {
 			return mb_substr($s, $start, $length, 'UTF-8'); // MB is much faster
@@ -99,6 +100,7 @@ class Strings
 		} elseif ($start < 0 && $length < 0) {
 			$start += self::length($s); // unifies iconv_substr behavior with mb_substr
 		}
+
 		return iconv_substr($s, $start, $length, 'UTF-8');
 	}
 
@@ -190,6 +192,7 @@ class Strings
 			} else {
 				$s = iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $s);
 			}
+
 			// remove garbage that iconv creates during transliteration (eg Ý -> Y')
 			$s = str_replace(['`', "'", '"', '^', '~', '?'], '', $s);
 			// restore temporarily hidden characters
@@ -206,12 +209,13 @@ class Strings
 	 * Modifies the UTF-8 string to the form used in the URL, ie removes diacritics and replaces all characters
 	 * except letters of the English alphabet and numbers with a hyphens.
 	 */
-	public static function webalize(string $s, string $charlist = null, bool $lower = true): string
+	public static function webalize(string $s, ?string $charlist = null, bool $lower = true): string
 	{
 		$s = self::toAscii($s);
 		if ($lower) {
 			$s = strtolower($s);
 		}
+
 		$s = self::pcre('preg_replace', ['#[^a-z0-9' . ($charlist !== null ? preg_quote($charlist, '#') : '') . ']+#i', '-', $s]);
 		$s = trim($s, '-');
 		return $s;
@@ -236,6 +240,7 @@ class Strings
 				return self::substring($s, 0, $maxLen) . $append;
 			}
 		}
+
 		return $s;
 	}
 
@@ -249,6 +254,7 @@ class Strings
 		if ($level > 0) {
 			$s = self::replace($s, '#(?:^|[\r\n]+)(?=[^\r\n])#', '$0' . str_repeat($chars, $level));
 		}
+
 		return $s;
 	}
 
@@ -303,7 +309,7 @@ class Strings
 	 * if it is negative, the corresponding number of characters from the end of the strings is compared,
 	 * otherwise the appropriate number of characters from the beginning is compared.
 	 */
-	public static function compare(string $left, string $right, int $length = null): bool
+	public static function compare(string $left, string $right, ?int $length = null): bool
 	{
 		if (class_exists('Normalizer', false)) {
 			$left = \Normalizer::normalize($left, \Normalizer::FORM_D); // form NFD is faster
@@ -317,6 +323,7 @@ class Strings
 			$left = self::substring($left, 0, $length);
 			$right = self::substring($right, 0, $length);
 		}
+
 		return self::lower($left) === self::lower($right);
 	}
 
@@ -334,10 +341,12 @@ class Strings
 					while ($i && $first[$i - 1] >= "\x80" && $first[$i] >= "\x80" && $first[$i] < "\xC0") {
 						$i--;
 					}
+
 					return substr($first, 0, $i);
 				}
 			}
 		}
+
 		return $first;
 	}
 
@@ -394,6 +403,7 @@ class Strings
 		if (!extension_loaded('iconv')) {
 			throw new Nette\NotSupportedException(__METHOD__ . '() requires ICONV extension that is not loaded.');
 		}
+
 		return iconv('UTF-32LE', 'UTF-8', strrev(iconv('UTF-8', 'UTF-32BE', $s)));
 	}
 
@@ -425,7 +435,7 @@ class Strings
 
 
 	/**
-	 * Returns position in bytes of $nth occurence of $needle in $haystack or null if the $needle was not found.
+	 * Returns position in characters of $nth occurence of $needle in $haystack or null if the $needle was not found.
 	 * Negative value of `$nth` means searching from the end.
 	 */
 	public static function indexOf(string $haystack, string $needle, int $nth = 1): ?int
@@ -438,7 +448,7 @@ class Strings
 
 
 	/**
-	 * Returns position in bytes of $nth occurence of $needle in $haystack or null if the needle was not found.
+	 * Returns position in characters of $nth occurence of $needle in $haystack or null if the needle was not found.
 	 */
 	private static function pos(string $haystack, string $needle, int $nth = 1): ?int
 	{
@@ -448,6 +458,7 @@ class Strings
 			if ($needle === '') {
 				return 0;
 			}
+
 			$pos = 0;
 			while (($pos = strpos($haystack, $needle, $pos)) !== false && --$nth) {
 				$pos++;
@@ -456,19 +467,23 @@ class Strings
 			$len = strlen($haystack);
 			if ($needle === '') {
 				return $len;
+			} elseif ($len === 0) {
+				return null;
 			}
+
 			$pos = $len - 1;
 			while (($pos = strrpos($haystack, $needle, $pos - $len)) !== false && ++$nth) {
 				$pos--;
 			}
 		}
+
 		return Helpers::falseToNull($pos);
 	}
 
 
 	/**
-	 * Splits a string into array by the regular expression.
-	 * Argument $flag takes same arguments as preg_split(), but PREG_SPLIT_DELIM_CAPTURE is set by default.
+	 * Splits a string into array by the regular expression. Parenthesized expression in the delimiter are captured.
+	 * Parameter $flags can be any combination of PREG_SPLIT_NO_EMPTY and PREG_OFFSET_CAPTURE flags.
 	 */
 	public static function split(string $subject, string $pattern, int $flags = 0): array
 	{
@@ -478,13 +493,14 @@ class Strings
 
 	/**
 	 * Checks if given string matches a regular expression pattern and returns an array with first found match and each subpattern.
-	 * Argument $flag takes same arguments as function preg_match().
+	 * Parameter $flags can be any combination of PREG_OFFSET_CAPTURE and PREG_UNMATCHED_AS_NULL flags.
 	 */
 	public static function match(string $subject, string $pattern, int $flags = 0, int $offset = 0): ?array
 	{
 		if ($offset > strlen($subject)) {
 			return null;
 		}
+
 		return self::pcre('preg_match', [$pattern, $subject, &$m, $flags, $offset])
 			? $m
 			: null;
@@ -492,14 +508,15 @@ class Strings
 
 
 	/**
-	 * Finds all occurrences matching regular expression pattern and returns a two-dimensional array.
-	 * Argument $flag takes same arguments as function preg_match_all(), but PREG_SET_ORDER is set by default.
+	 * Finds all occurrences matching regular expression pattern and returns a two-dimensional array. Result is array of matches (ie uses by default PREG_SET_ORDER).
+	 * Parameter $flags can be any combination of PREG_OFFSET_CAPTURE, PREG_UNMATCHED_AS_NULL and PREG_PATTERN_ORDER flags.
 	 */
 	public static function matchAll(string $subject, string $pattern, int $flags = 0, int $offset = 0): array
 	{
 		if ($offset > strlen($subject)) {
 			return [];
 		}
+
 		self::pcre('preg_match_all', [
 			$pattern, $subject, &$m,
 			($flags & PREG_PATTERN_ORDER) ? $flags : ($flags | PREG_SET_ORDER),
@@ -520,6 +537,7 @@ class Strings
 			if (!is_callable($replacement, false, $textual)) {
 				throw new Nette\InvalidStateException("Callback '$textual' is not callable.");
 			}
+
 			return self::pcre('preg_replace_callback', [$pattern, $replacement, $subject, $limit]);
 
 		} elseif (is_array($pattern) && is_string(key($pattern))) {
@@ -545,6 +563,7 @@ class Strings
 			throw new RegexpException((RegexpException::MESSAGES[$code] ?? 'Unknown error')
 				. ' (pattern: ' . implode(' or ', (array) $args[0]) . ')', $code);
 		}
+
 		return $res;
 	}
 }

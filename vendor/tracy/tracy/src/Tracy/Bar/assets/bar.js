@@ -6,7 +6,7 @@ let panelZIndex = 20000,
 	maxAjaxRows = 3,
 	autoRefresh = true,
 	nonce = document.currentScript.getAttribute('nonce') || document.currentScript.nonce,
-	contentId = document.currentScript.dataset.id,
+	requestId = document.currentScript.dataset.id,
 	ajaxCounter = 1,
 	baseUrl = location.href.split('#')[0];
 
@@ -189,7 +189,7 @@ class Panel
 
 
 	savePosition() {
-		let key = this.id.split(':')[0]; // remove :contentId part
+		let key = this.id.split(':')[0]; // remove :requestId part
 		let pos = getPosition(this.elem);
 		if (this.is(Panel.WINDOW)) {
 			localStorage.setItem(key, JSON.stringify({window: true}));
@@ -380,7 +380,7 @@ class Debug
 	static init(content) {
 		Debug.bar = new Bar;
 		Debug.panels = {};
-		Debug.layer = document.createElement('div');
+		Debug.layer = document.createElement('tracy-div');
 		Debug.layer.setAttribute('id', 'tracy-debug');
 		Debug.layer.innerHTML = addNonces(content);
 		(document.body || document.documentElement).appendChild(Debug.layer);
@@ -412,10 +412,10 @@ class Debug
 				let panel = Debug.panels[tab.rel];
 				if (panel.is(Panel.PEEK)) {
 					delete Debug.panels[tab.rel];
-					panel.elem.parentNode.removeChild(panel.elem);
+					panel.elem.remove();
 				}
 			});
-			row.parentNode.removeChild(row);
+			row.remove();
 		});
 
 		if (rows[0]) { // update content in first-row panels
@@ -466,16 +466,16 @@ class Debug
 
 
 	static captureAjax() {
-		let header = Tracy.getAjaxHeader();
-		if (!header) {
+		if (!requestId) {
 			return;
 		}
 		let oldOpen = XMLHttpRequest.prototype.open;
 
 		XMLHttpRequest.prototype.open = function() {
 			oldOpen.apply(this, arguments);
+
 			if (autoRefresh && new URL(arguments[1], location.origin).host === location.host) {
-				let reqId = header + '_' + ajaxCounter++;
+				let reqId = Tracy.getAjaxHeader();
 				this.setRequestHeader('X-Tracy-Ajax', reqId);
 				this.addEventListener('load', function() {
 					if (this.getAllResponseHeaders().match(/^X-Tracy-Ajax: 1/mi)) {
@@ -488,27 +488,27 @@ class Debug
 		let oldFetch = window.fetch;
 		window.fetch = function(request, options) {
 			request = request instanceof Request ? request : new Request(request, options || {});
+			let reqId = request.headers.get('X-Tracy-Ajax');
 
-			if (autoRefresh && new URL(request.url, location.origin).host === location.host) {
-				let reqId = header + '_' + ajaxCounter++;
+			if (autoRefresh && !reqId && new URL(request.url, location.origin).host === location.host) {
+				reqId = Tracy.getAjaxHeader();
 				request.headers.set('X-Tracy-Ajax', reqId);
-				return oldFetch(request).then((response) => {
-					if (response instanceof Response && response.headers.has('X-Tracy-Ajax') && response.headers.get('X-Tracy-Ajax')[0] === '1') {
-						Debug.loadScript(baseUrl + '_tracy_bar=content-ajax.' + reqId + '&XDEBUG_SESSION_STOP=1&v=' + Math.random());
-					}
-
-					return response;
-				});
 			}
 
-			return oldFetch(request);
+			return oldFetch(request).then((response) => {
+				if (response instanceof Response && response.headers.has('X-Tracy-Ajax') && response.headers.get('X-Tracy-Ajax')[0] === '1') {
+					Debug.loadScript(baseUrl + '_tracy_bar=content-ajax.' + reqId + '&XDEBUG_SESSION_STOP=1&v=' + Math.random());
+				}
+
+				return response;
+			});
 		};
 	}
 
 
 	static loadScript(url) {
 		if (Debug.scriptElem) {
-			Debug.scriptElem.parentNode.removeChild(Debug.scriptElem);
+			Debug.scriptElem.remove();
 		}
 		Debug.scriptElem = document.createElement('script');
 		Debug.scriptElem.src = url;
@@ -686,7 +686,7 @@ let Tracy = window.Tracy = window.Tracy || {};
 Tracy.DebugPanel = Panel;
 Tracy.DebugBar = Bar;
 Tracy.Debug = Debug;
-Tracy.getAjaxHeader = () => contentId;
+Tracy.getAjaxHeader = () => requestId + '_' + ajaxCounter++;
 
 Debug.setOptions({
 	panelZIndex: Tracy.panelZIndex,

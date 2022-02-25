@@ -106,10 +106,10 @@ class Form extends Container implements Nette\HtmlStringable
 	/** @var Nette\Http\IRequest */
 	private static $defaultHttpRequest;
 
-	/** @var mixed or null meaning: not detected yet */
+	/** @var SubmitterControl|bool */
 	private $submittedBy;
 
-	/** @var array */
+	/** @var array|null */
 	private $httpData;
 
 	/** @var Html  element <form> */
@@ -246,8 +246,9 @@ class Form extends Container implements Nette\HtmlStringable
 
 	/**
 	 * Adds fieldset group to the form.
+	 * @param  string|object  $caption
 	 */
-	public function addGroup(string $caption = null, bool $setAsCurrent = true): ControlGroup
+	public function addGroup($caption = null, bool $setAsCurrent = true): ControlGroup
 	{
 		$group = new ControlGroup;
 		$group->setOption('label', $caption);
@@ -349,7 +350,7 @@ class Form extends Container implements Nette\HtmlStringable
 	 */
 	public function isSubmitted()
 	{
-		if ($this->submittedBy === null) {
+		if ($this->httpData === null) {
 			$this->getHttpData();
 		}
 		return $this->submittedBy;
@@ -410,7 +411,10 @@ class Form extends Container implements Nette\HtmlStringable
 			$this->validate();
 		}
 
+		$handled = count($this->onSuccess ?? []) || count($this->onSubmit ?? []);
+
 		if ($this->submittedBy instanceof Controls\SubmitButton) {
+			$handled = $handled || count($this->submittedBy->onClick ?? []);
 			if ($this->isValid()) {
 				$this->invokeHandlers($this->submittedBy->onClick, $this->submittedBy);
 			} else {
@@ -427,6 +431,10 @@ class Form extends Container implements Nette\HtmlStringable
 		}
 
 		Arrays::invoke($this->onSubmit, $this);
+
+		if (!$handled) {
+			trigger_error("Form was submitted but there are no associated handlers (form '{$this->getName()}').", E_USER_WARNING);
+		}
 	}
 
 
@@ -692,13 +700,6 @@ class Form extends Container implements Nette\HtmlStringable
 			}
 			Nette\Http\Helpers::initCookie(self::$defaultHttpRequest, new Nette\Http\Response);
 		}
-	}
-
-
-	/** @internal */
-	public function setHttpRequest(Nette\Http\IRequest $request)
-	{
-		$this->httpRequest = $request;
 	}
 
 

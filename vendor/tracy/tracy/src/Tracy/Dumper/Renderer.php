@@ -35,6 +35,9 @@ final class Renderer
 	/** @var bool|null  lazy-loading via JavaScript? true=full, false=none, null=collapsed parts */
 	public $lazy;
 
+	/** @var bool */
+	public $hash = true;
+
 	/** @var string */
 	public $theme = 'light';
 
@@ -211,7 +214,7 @@ final class Renderer
 				. '</span>';
 
 		} elseif (is_string($str)) {
-			$len = strlen(utf8_decode($str));
+			$len = Helpers::utf8Length($str);
 			return '<span class="tracy-dump-string"'
 				. ($len > 1 ? ' title="' . $len . ' characters"' : '')
 				. '>'
@@ -232,6 +235,7 @@ final class Renderer
 					$indent = '<span class="tracy-dump-indent">   ' . str_repeat('|  ', $depth) . ' </span>';
 					$toggle = '<span class="tracy-toggle' . ($collapsed ? ' tracy-collapsed' : '') . '">string</span>' . "\n";
 				}
+
 				return $toggle
 					. '<div class="tracy-dump-string' . ($collapsed ? ' tracy-collapsed' : '')
 					. '" title="' . $str->length . ' ' . $unit . '">'
@@ -280,6 +284,7 @@ final class Renderer
 					$this->copySnapshot($ref);
 					return '<span class="tracy-toggle tracy-collapsed" data-tracy-dump=\'' . json_encode($ref) . "'>" . $out . '</span>';
 				}
+
 				return $out . (isset($this->above[$array->id]) ? ' <i>see above</i>' : ' <i>see below</i>');
 			}
 		}
@@ -309,7 +314,7 @@ final class Renderer
 			$out .= $indent
 				. $this->renderVar($k, $depth + 1, self::TYPE_ARRAY_KEY)
 				. ' => '
-				. ($ref ? '<span class="tracy-dump-hash">&' . $ref . '</span> ' : '')
+				. ($ref && $this->hash ? '<span class="tracy-dump-hash">&' . $ref . '</span> ' : '')
 				. ($tmp = $this->renderVar($v, $depth + 1))
 				. (substr($tmp, -6) === '</div>' ? '' : "\n");
 		}
@@ -317,6 +322,7 @@ final class Renderer
 		if ($count > count($items)) {
 			$out .= $indent . "…\n";
 		}
+
 		unset($this->parents[$array->id ?? null]);
 		return $out . '</div>';
 	}
@@ -336,10 +342,13 @@ final class Renderer
 			);
 		}
 
+		$pos = strrpos($object->value, '\\');
 		$out = '<span class="tracy-dump-object"' . $editorAttributes . '>'
-			. Helpers::escapeHtml($object->value)
+			. ($pos
+				? Helpers::escapeHtml(substr($object->value, 0, $pos + 1)) . '<b>' . Helpers::escapeHtml(substr($object->value, $pos + 1)) . '</b>'
+				: Helpers::escapeHtml($object->value))
 			. '</span>'
-			. ($object->id ? ' <span class="tracy-dump-hash">#' . $object->id . '</span>' : '');
+			. ($object->id && $this->hash ? ' <span class="tracy-dump-hash">#' . $object->id . '</span>' : '');
 
 		if ($object->items === null) {
 			return $out . ' …';
@@ -356,6 +365,7 @@ final class Renderer
 				$this->copySnapshot($ref);
 				return '<span class="tracy-toggle tracy-collapsed" data-tracy-dump=\'' . json_encode($ref) . "'>" . $out . '</span>';
 			}
+
 			return $out . (isset($this->above[$object->id]) ? ' <i>see above</i>' : ' <i>see below</i>');
 		}
 
@@ -380,7 +390,7 @@ final class Renderer
 			$out .= $indent
 				. $this->renderVar($k, $depth + 1, $type)
 				. ': '
-				. ($ref ? '<span class="tracy-dump-hash">&' . $ref . '</span> ' : '')
+				. ($ref && $this->hash ? '<span class="tracy-dump-hash">&' . $ref . '</span> ' : '')
 				. ($tmp = $this->renderVar($v, $depth + 1))
 				. (substr($tmp, -6) === '</div>' ? '' : "\n");
 		}
@@ -388,6 +398,7 @@ final class Renderer
 		if ($object->length > count($object->items)) {
 			$out .= $indent . "…\n";
 		}
+
 		unset($this->parents[$object->id]);
 		return $out . '</div>';
 	}
@@ -396,7 +407,7 @@ final class Renderer
 	private function renderResource(Value $resource, int $depth): string
 	{
 		$out = '<span class="tracy-dump-resource">' . Helpers::escapeHtml($resource->value) . '</span> '
-			. '<span class="tracy-dump-hash">@' . substr($resource->id, 1) . '</span>';
+			. ($this->hash ? '<span class="tracy-dump-hash">@' . substr($resource->id, 1) . '</span>' : '');
 
 		if (!$resource->items) {
 			return $out;
@@ -407,6 +418,7 @@ final class Renderer
 				$this->copySnapshot($ref);
 				return '<span class="tracy-toggle tracy-collapsed" data-tracy-dump=\'' . json_encode($ref) . "'>" . $out . '</span>';
 			}
+
 			return $out . ' <i>see above</i>';
 
 		} else {
@@ -419,6 +431,7 @@ final class Renderer
 					. ($tmp = $this->renderVar($v, $depth + 1))
 					. (substr($tmp, -6) === '</div>' ? '' : "\n");
 			}
+
 			return $out . '</div>';
 		}
 	}
@@ -429,6 +442,7 @@ final class Renderer
 		if ($this->collectingMode) {
 			return;
 		}
+
 		if ($this->snapshotSelection === null) {
 			$this->snapshotSelection = [];
 		}
@@ -438,14 +452,9 @@ final class Renderer
 				$this->copySnapshot($v);
 			}
 		} elseif ($value instanceof Value && $value->type === Value::TYPE_REF) {
-			if (isset($this->snapshotSelection[$value->value])) {
-				return;
-			}
-			$ref = $this->snapshotSelection[$value->value] = $this->snapshot[$value->value];
-			if (!isset($this->parents[$value->value])) {
-				$this->parents[$value->value] = true;
+			if (!isset($this->snapshotSelection[$value->value])) {
+				$ref = $this->snapshotSelection[$value->value] = $this->snapshot[$value->value];
 				$this->copySnapshot($ref);
-				unset($this->parents[$value->value]);
 			}
 		} elseif ($value instanceof Value && $value->items) {
 			foreach ($value->items as [, $v]) {
@@ -479,6 +488,7 @@ final class Renderer
 				} else {
 					$stack[] = isset($m[1], $colors[$m[1]]) ? $colors[$m[1]] : '0';
 				}
+
 				return "\033[" . end($stack) . 'm';
 			},
 			$s

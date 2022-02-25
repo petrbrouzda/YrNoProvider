@@ -101,6 +101,7 @@ class Validators
 			} elseif (is_object($value)) {
 				$type .= ' ' . get_class($value);
 			}
+
 			throw new AssertionException("The $label expects to be $expected, $type given.");
 		}
 	}
@@ -115,7 +116,7 @@ class Validators
 	public static function assertField(
 		array $array,
 		$key,
-		string $expected = null,
+		?string $expected = null,
 		string $label = "item '%' in array"
 	): void {
 		if (!array_key_exists($key, $array)) {
@@ -138,6 +139,7 @@ class Validators
 				if (is_iterable($value) && self::everyIs($value, substr($item, 0, -2))) {
 					return true;
 				}
+
 				continue;
 			} elseif (substr($item, 0, 1) === '?') {
 				$item = substr($item, 1);
@@ -159,6 +161,7 @@ class Validators
 				if (Strings::match($value, '|^' . ($item[1] ?? '') . '$|D')) {
 					return true;
 				}
+
 				continue;
 			} elseif (!$value instanceof $type) {
 				continue;
@@ -169,16 +172,20 @@ class Validators
 				if (isset(static::$counters[$type])) {
 					$length = static::$counters[$type]($value);
 				}
+
 				$range = explode('..', $item[1]);
 				if (!isset($range[1])) {
 					$range[1] = $range[0];
 				}
+
 				if (($range[0] !== '' && $length < $range[0]) || ($range[1] !== '' && $length > $range[1])) {
 					continue;
 				}
 			}
+
 			return true;
 		}
+
 		return false;
 	}
 
@@ -194,6 +201,7 @@ class Validators
 				return false;
 			}
 		}
+
 		return true;
 	}
 
@@ -224,7 +232,7 @@ class Validators
 	 */
 	public static function isNumeric($value): bool
 	{
-		return is_float($value) || is_int($value) || (is_string($value) && preg_match('#^[+-]?[0-9]*[.]?[0-9]+$#D', $value));
+		return is_float($value) || is_int($value) || (is_string($value) && preg_match('#^[+-]?([0-9]++\.?[0-9]*|\.[0-9]+)$#D', $value));
 	}
 
 
@@ -286,6 +294,7 @@ class Validators
 		if ($value === null || !(isset($range[0]) || isset($range[1]))) {
 			return false;
 		}
+
 		$limit = $range[0] ?? $range[1];
 		if (is_string($limit)) {
 			$value = (string) $value;
@@ -298,6 +307,7 @@ class Validators
 		} else {
 			return false;
 		}
+
 		return (!isset($range[0]) || ($value >= $range[0])) && (!isset($range[1]) || ($value <= $range[1]));
 	}
 
@@ -368,6 +378,6 @@ XX
 	 */
 	public static function isPhpIdentifier(string $value): bool
 	{
-		return is_string($value) && preg_match('#^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$#D', $value);
+		return preg_match('#^[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*$#D', $value) === 1;
 	}
 }
