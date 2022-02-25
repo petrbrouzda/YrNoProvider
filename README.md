@@ -13,7 +13,7 @@ Načte z Yr.no velký JSON s předpovědí a ztransformuje ho na malý JSON s da
 - hodinová předpověď pro aktuálních 12 hodin
 - předpověď po sekcích (dopoledne, odpoledne, večer, noc)
 
-Vyzkoušejte si zde: https://lovecka.info/YrNoProvider1/yrno/forecast?lat=50.7230&lon=15.1514&alt=500 a do lat, lon a alt zadejte své souřadnice a nadmořskou výšku.
+Vyzkoušejte si zde: https://lovecka.info/YrNoProvider1/yrno/forecast?lat=50.8530&lon=15.3214&alt=500 a do lat, lon a alt zadejte své souřadnice a nadmořskou výšku.
 
 Aplikace řeší kešování dotazů na Yr.no i parsovaných odpovědí, aby zbytečně nezatěžovala lokální server, ani nenarazila na limity na straně yr.no. Aplikace vyplňuje User-agent dle požadavku Yr.no.
 
@@ -141,7 +141,7 @@ Pokud ovšem alojz.cz nefunguje, pak si stáhne předpověď z yr.no a postaví 
 
 **Nemusíte měnit kód** v meteostanici (v mikrokontroléru). Vrácená data **mají stejnou strukturu**, ať se vrátí z alojz.cz nebo z náhradního zdroje.
 
-Vyzkoušejte si zde: https://lovecka.info/YrNoProvider1/alojz/alojz?alojzId=jablonec-nad-nisou&lat=50.7230&lon=15.1514&alt=500
+Vyzkoušejte si zde: https://lovecka.info/YrNoProvider1/alojz/alojz?alojzId=jablonec-nad-nisou&lat=50.8530&lon=15.3214&alt=500
 
 * alojzId je ID místa používaný v alojz.cz
 * lat, lon, alt jsou zeměpisné souřadnice a nadmořská výška místa pro stahování z yr.no
