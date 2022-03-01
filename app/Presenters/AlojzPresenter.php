@@ -533,18 +533,33 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
                 throw new \Exception( 'Vsechny parametry lat,lon,alt musi byt cislo' );
             }
 
-            $rc = array();
+            Logger::log( 'app', Logger::INFO ,  "start: {$alojzId}, {$lat}, {$lon}, {$alt} @{$this->getHttpRequest()->getRemoteAddress()}" );
 
-            // tohle zavolame vzdy; zajisti nacteni souboru, pokud je potreba
-            $data = $this->alojzDownloader->getData( $alojzId );
-            $json = Json::decode($data);
-            if( $json->day1==null && $json->day2==null ) {
-                Logger::log( 'app', Logger::INFO ,  "  day1 i day2 jsou null, data z Alojze nejsou OK" );
-                $this->alojzDownloader->deleteFromCache( $alojzId );
-                $rc = $this->generujData( $lat, $lon, $alt );
+            $key = "ao_{$alojzId}_{$lat}_{$lon}_{$alt}";
+            $rc = $this->cache->get( $key );
+            if( $rc==NULL ) {
+               // pokud v kesi nic nemame, hodnotu spocteme
+
+               $rc = array();
+
+               // tohle zavolame vzdy; zajisti nacteni souboru, pokud je potreba
+               $data = $this->alojzDownloader->getData( $alojzId );
+               $json = Json::decode($data);
+               if( $json->day1==null && $json->day2==null ) {
+                  Logger::log( 'app', Logger::INFO ,  "  day1 i day2 jsou null, data z Alojze nejsou OK" );
+                  $this->alojzDownloader->deleteFromCache( $alojzId );
+                  $rc = $this->generujData( $lat, $lon, $alt );
+               } else {
+                  Logger::log( 'app', Logger::INFO ,  "  pouzivam primo data z Alojze" );
+                  $rc = $json; 
+               }
+
+               $this->cache->put($key, $rc, [
+                  Cache::EXPIRE => "1800 seconds"
+               ]);
+
             } else {
-                Logger::log( 'app', Logger::DEBUG ,  "  pouzivam primo data z Alojze" );
-                $rc = $json; 
+               Logger::log( 'app', Logger::DEBUG ,  "  cache hit" );
             }
 
             Logger::log( 'app', Logger::INFO ,  "OK" );            
