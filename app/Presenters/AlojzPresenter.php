@@ -396,7 +396,11 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          } 
       }
 
-      switch( rand(1, 3) ) {
+      $maxRand = 3;
+      if( $dest || $bourky ) {
+         $maxRand = 2;
+      }
+      switch( rand(1, $maxRand) ) {
          case 1:
             $this->obleceni = 'Vezmi si ' . $this->obleceni . '.';
             break;
@@ -455,7 +459,7 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          $text2 = $this->infoODni( $hodinovaTabulka, 8, 11, false, 'Dopoledne' );
          $text2 .= ' ';
          $text2 .= $this->infoODni( $hodinovaTabulka, 12, 20, false, 'Odpoledne' );
-         $this->infoODni( $hodinovaTabulka, $curHour, 20, false, '-' );
+         $this->infoODni( $hodinovaTabulka, 8, 20, false, '-' );
          $text2 = $this->obleceni . ' ' . $text2;
          $prefer = 'day2';
       } else  {
