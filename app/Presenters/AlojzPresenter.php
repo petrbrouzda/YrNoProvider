@@ -368,8 +368,13 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          $this->obleceni = "arktickou bundu, kulicha a tlusté rukavice";
       } else if( $minTemp<-2 ) {
          $this->obleceni = "zimní bundu a rukavice";
-      } else if( $minTemp<10  ) {
+      } else if( $minTemp<5  ) {
          $this->obleceni = "tlustou bundu";
+         if( $dest || $bourky ) {
+            $this->obleceni .= " a deštník";
+         }
+      } else if( $minTemp<10  ) {
+         $this->obleceni = "bundu";
          if( $dest || $bourky ) {
             $this->obleceni .= " a deštník";
          }
