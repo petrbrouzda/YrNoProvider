@@ -438,16 +438,16 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
       $curHour = intval( date( 'G' ) );
       if( $curHour<8 ) {
          // dnesek 08-20
-         $text1 = $this->infoODni( $hodinovaTabulka, 8, 11, true, 'Dopoledne' );
+         $text1 = $this->infoODni( $hodinovaTabulka, 8, 12, true, 'Dopoledne' );
          $text1 .= ' ';
-         $text1 .= $this->infoODni( $hodinovaTabulka, 12, 20, true, 'Odpoledne' );
+         $text1 .= $this->infoODni( $hodinovaTabulka, 13, 20, true, 'Odpoledne' );
          $this->infoODni( $hodinovaTabulka, 8, 19, true, '-' );
          $text1 = $this->obleceni . ' ' . $text1;
          $prefer = 'day1';
       } else if( $curHour<12 ) {
          $text1 = $this->infoODni( $hodinovaTabulka, $curHour, 12, true, 'Dopoledne' );
          $text1 .= ' ';
-         $text1 .= $this->infoODni( $hodinovaTabulka, 12, 20, true, 'Odpoledne' );
+         $text1 .= $this->infoODni( $hodinovaTabulka, 13, 20, true, 'Odpoledne' );
          $this->infoODni( $hodinovaTabulka, $curHour, 19, true, '-' );
          $text1 = $this->obleceni . ' ' . $text1;
          $prefer = 'day1';
@@ -461,17 +461,17 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          // obdobi od ted do 21
          $text1 = $this->infoODni( $hodinovaTabulka, $curHour, 21, true, 'Večer' );
          // zitrek 08-20
-         $text2 = $this->infoODni( $hodinovaTabulka, 8, 11, false, 'Dopoledne' );
+         $text2 = $this->infoODni( $hodinovaTabulka, 8, 12, false, 'Dopoledne' );
          $text2 .= ' ';
-         $text2 .= $this->infoODni( $hodinovaTabulka, 12, 20, false, 'Odpoledne' );
+         $text2 .= $this->infoODni( $hodinovaTabulka, 13, 20, false, 'Odpoledne' );
          $this->infoODni( $hodinovaTabulka, 8, 20, false, '-' );
          $text2 = $this->obleceni . ' ' . $text2;
          $prefer = 'day2';
       } else  {
          // zitrek 08-20
-         $text2 = $this->infoODni( $hodinovaTabulka, 8, 11, false, 'Dopoledne' );
+         $text2 = $this->infoODni( $hodinovaTabulka, 8, 12, false, 'Dopoledne' );
          $text2 .= ' ';
-         $text2 .= $this->infoODni( $hodinovaTabulka, 12, 20, false, 'Odpoledne' );
+         $text2 .= $this->infoODni( $hodinovaTabulka, 13, 20, false, 'Odpoledne' );
          $this->infoODni( $hodinovaTabulka, 8, 19, false, '-' );
          $text2 = $this->obleceni . ' ' . $text2;
          $prefer = 'day2';
