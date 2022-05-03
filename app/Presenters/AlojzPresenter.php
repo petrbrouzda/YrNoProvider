@@ -457,6 +457,16 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          $prefer = 'day1';
          $this->infoODni( $hodinovaTabulka, $curHour, 19, true, '-' );
          $text1 = $this->obleceni . ' ' . $text1;
+      } else if( $curHour<18 ) {
+         // obdobi od ted do 21
+         $text1 = $this->infoODni( $hodinovaTabulka, $curHour, 21, true, 'Večer' );
+         // zitrek 08-20
+         $text2 = $this->infoODni( $hodinovaTabulka, 8, 12, false, 'Dopoledne' );
+         $text2 .= ' ';
+         $text2 .= $this->infoODni( $hodinovaTabulka, 13, 20, false, 'Odpoledne' );
+         $this->infoODni( $hodinovaTabulka, 8, 20, false, '-' );
+         $text2 = $this->obleceni . ' ' . $text2;
+         $prefer = 'day1';
       } else if( $curHour<20 ) {
          // obdobi od ted do 21
          $text1 = $this->infoODni( $hodinovaTabulka, $curHour, 21, true, 'Večer' );
