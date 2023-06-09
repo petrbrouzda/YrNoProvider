@@ -385,19 +385,19 @@ final class AlojzPresenter extends Nette\Application\UI\Presenter
          }
       } else if( $minTemp<20  ) {
          if( $prehanky ) {
-            $this->obleceni = "mikinu";
+            $this->obleceni = "lehkou bundu";
          } else if( $dest || $bourky ) {
-            $this->obleceni .= "mikinu a deštník";
+            $this->obleceni .= "lehkou bundu a deštník";
          } else {
-            $this->obleceni = "triko";
+            $this->obleceni = "tričko s dlouhým rukávem";
          } 
       } else {
          if( $prehanky ) {
-            $this->obleceni = "triko";
+            $this->obleceni = "tričko";
          } else if( $dest || $bourky ) {
-            $this->obleceni .= "triko a deštník";
+            $this->obleceni .= "tričko a deštník";
          } else {
-            $this->obleceni = "triko a kraťasy";
+            $this->obleceni = "tričko a kraťasy";
          } 
       }
 
